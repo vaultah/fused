@@ -47,7 +47,7 @@ class BaseModel(metaclass=MetaModel):
             self._data = self._get_unique(field, value)
 
     def __enter__(self):
-        if not self.__context_depth__:
+        if not self._in_cm():
             self.redis = self.__redis__.pipeline()
         self.__context_depth__ += 1
         return self
@@ -55,7 +55,7 @@ class BaseModel(metaclass=MetaModel):
     def __exit__(self, exc_type, exc_value, traceback):
         # Must be set at the beginning of this method
         self.__context_depth__ -= 1
-        if not self.__context_depth__:
+        if not self._in_cm():
             self.redis.execute()
             self.redis = self.__redis__
 
