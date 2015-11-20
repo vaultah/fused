@@ -27,6 +27,12 @@ class Field(BaseField):
         key = self.qualified()
         return self._type(key, this) if self.auto else attrproxy(key, this)
 
+    def __set__(self, this, value):
+        if not isinstance(value, autotype):
+            raise TypeError('Field.__set__ only works for Auto fields')
+        self._type.save(self.qualified(), this, value)
+
+
 
 # Proxy classes
 
@@ -61,24 +67,42 @@ class autotype:
 class _Set(autotype, set):
     def _get(self):
         return self.model.__redis__.smembers(self.key)
+    @classmethod
+    def save(cls, key, model, value):
+        pass
 
 
 class _List(autotype, list):
     def _get(self):
         return self.model.__redis__.lrange(self.key, 0, -1)
+    @classmethod
+    def save(cls, key, model, value):
+        pass
 
 
 class _String(autotype, str):
     def _get(self):
         return self.model.__redis__.get(self.key)
+    @classmethod
+    def save(cls, key, model, value):
+        pass
+
 
 class _Integer(autotype, int):
     def _get(self):
         return "TODO"
+    @classmethod
+    def save(cls, key, model, value):
+        pass
+
 
 class _Hash(autotype, dict):
     def _get(self):
         return {}
+    @classmethod
+    def save(cls, key, model, value):
+        pass
+
 
 class Set(Field):
     _type = _Set
