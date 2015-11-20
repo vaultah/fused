@@ -40,11 +40,11 @@ class BaseModel(metaclass=MetaModel):
             if len(ka) > 1:
                 raise ValueError('Attempted to search by multiple fields;'
                                  'use get_by for that')
-            field = next(iter(ka))
+            field, value = ka.popitem()
             if field not in self._unique_fields:  
                 raise TypeError('Attempted to get by non-unique'
                                 ' field {!r}'.format(field))
-            self._data = self._get_unique(**ka)
+            self._data = self._get_unique(field, value)
 
     def __enter__(self):
         if not self.__context_depth__:

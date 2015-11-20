@@ -36,7 +36,7 @@ class callproxy:
         self.key, self.model, self.attr = key, model, attr
 
     def __call__(self, *a, **ka):
-        meth = getattr(self.model.__redis__, self.attr)
+        meth = getattr(self.model.redis, self.attr)
         return meth(self.key, *a, **ka)
 
 
@@ -58,18 +58,39 @@ class autotype:
 
 # Types
 
-class Set(autotype, set):
+class _Set(autotype, set):
     def _get(self):
         return self.model.__redis__.smembers(self.key)
 
 
-class List(autotype, list):
+class _List(autotype, list):
     def _get(self):
         return self.model.__redis__.lrange(self.key, 0, -1)
 
 
-class SetField(Field):
-    _type = Set
+class _String(autotype, str):
+    def _get(self):
+        return self.model.__redis__.get(self.key)
 
-class ListField(Field):
-    _type = List
+class _Integer(autotype, int):
+    def _get(self):
+        return "TODO"
+
+class _Hash(autotype, dict):
+    def _get(self):
+        return {}
+
+class Set(Field):
+    _type = _Set
+
+class List(Field):
+    _type = _List
+
+class Integer(Field):
+    _type = _Integer
+
+class String(Field):
+    _type = _String
+
+class Hash(Field):
+    _type = _Hash
