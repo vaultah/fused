@@ -47,17 +47,16 @@ class BaseModel(metaclass=MetaModel):
             self._data = self._get_unique(field, value)
 
     def __enter__(self):
-        if not self._in_cm():
-            self.redis = self.__redis__.pipeline()
+        if not self.__context_depth__:
+            pipe = self.__redis__.pipeline()
+            self.redis = pipe.__enter__()
         self.__context_depth__ += 1
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         # Must be set at the beginning of this method
         self.__context_depth__ -= 1
-        if not self._in_cm():
+        if not self.__context_depth__:
             self.redis.execute()
+            self.redis.__exit__(exc_type, exc_value, traceback)
             self.redis = self.__redis__
-
-    def _in_cm(self):
-        return self.__context_depth__ != 0
