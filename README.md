@@ -1,6 +1,6 @@
 # fused
 Small convenience wrapper around redis-py
 
-![Travis CI](https://travis-ci.org/vaultah/fused.svg)
+[![Build Status](https://travis-ci.org/vaultah/fused.svg?branch=master)](https://travis-ci.org/vaultah/fused)
 
 Pre-pre-α
