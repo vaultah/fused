@@ -13,6 +13,8 @@ class BaseField:
 
 class Field(BaseField):
 
+    _auto_cache = {}
+
     def __init__(self, unique=False, indexable=False, required=False,
                        auto=False):
         if unique or auto:
@@ -28,7 +30,11 @@ class Field(BaseField):
             raise TypeError('Expected instance, None found')
         key = self.qualified()
         if self.auto:
-            return self._auto(key, this)
+            try:
+                return self._auto_cache[this, self.name]
+            except KeyError:
+                retv = self._auto_cache[this, self.name] = self._auto(key, this)
+                return retv
         else:
             return commandproxy(key, this)
 
@@ -44,11 +50,11 @@ class Field(BaseField):
 class callproxy:
 
     def __init__(self, key, model, attr):
-        self.key, self.model, self.attr = key, model, attr
+        self.key, self.attr = key, attr
+        self.method = getattr(model.redis, attr)
 
     def __call__(self, *a, **ka):
-        meth = getattr(self.model.redis, self.attr)
-        return meth(self.key, *a, **ka)
+        return self.method(self.key, *a, **ka)
 
     def __repr__(self):
         return '<{!r} proxy for {!r} at {:#x}>'.format(
@@ -78,56 +84,54 @@ class autotype:
 # Types
 
 class _Set(autotype, set):
+
     def _get(self):
         return self.model.__redis__.smembers(self.key)
+
     @classmethod
     def save(cls, key, model, value):
         pass
 
+    def remove(self, ):
+        return super().remove()
 
-class _List(autotype, list):
-    def _get(self):
-        return self.model.__redis__.lrange(self.key, 0, -1)
-    @classmethod
-    def save(cls, key, model, value):
-        pass
+    def pop(self, ):
+        return super().pop()
 
+    def update(self, ):
+        return super().update()
 
-class _String(autotype, str):
-    def _get(self):
-        return self.model.__redis__.get(self.key)
-    @classmethod
-    def save(cls, key, model, value):
-        pass
+    def symmetric_difference_update(self, ):
+        return super().symmetric_difference_update()
 
+    def intersection_update(self, ):
+        return super().intersection_update()
 
-class _Integer(autotype, int):
-    def _get(self):
-        return "TODO"
-    @classmethod
-    def save(cls, key, model, value):
-        pass
+    def discard(self, ):
+        return super().discard()
 
+    def difference_update(self, ):
+        return super().difference_update()
 
-class _Hash(autotype, dict):
-    def _get(self):
-        return {}
-    @classmethod
-    def save(cls, key, model, value):
-        pass
+    def clear(self, ):
+        return super().clear()
+
+    def add(self, elem):
+        self.model.redis.sadd(self.key, elem)
+        return super().add(elem)
+
+    def __ixor__(self, ):
+        return super().__ixor__()
+
+    def __ior__(self, ):
+        return super().__ior__()
+
+    def __iand__(self, ):
+        return super().__iand__()
+
+    def __getattr__(self, attr):
+        return callproxy(self.key, self.model, attr)
 
 
 class Set(Field):
     _auto = _Set
-
-class List(Field):
-    _auto = _List
-
-class Integer(Field):
-    _auto = _Integer
-
-class String(Field):
-    _auto = _String
-
-class Hash(Field):
-    _auto = _Hash

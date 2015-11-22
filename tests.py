@@ -17,6 +17,7 @@ def flushdb():
 class testmodel(model.BaseModel):
     redis = TEST_CONNECTION
     proxy = fields.Field()
+    set = fields.Set(auto=True)
 
 class TestFields:
 
@@ -39,3 +40,16 @@ class TestFields:
         proxy = getattr(tm.proxy, command.lower())
         iproxy = getattr(tm.proxy, inverse.lower())
         assert all(x == y for x, y in zip(args, iproxy(*invargs)))
+
+
+class TestSet:
+
+    def test_blah_blah(self):
+        tm = testmodel()
+        assert not tm.set
+        tm.set.add(b'<string>')
+        assert tm.set
+        assert len(tm.set) == 1
+        assert tm.set == {b'<string>'}
+        assert tm.set.smembers()
+        assert tm.set.smembers() == {b'<string>'}
