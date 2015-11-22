@@ -14,17 +14,19 @@ def flushdb():
     TEST_CONNECTION.flushdb()
 
 
-class pureproxymodel(model.BaseModel):
+class testmodel(model.BaseModel):
     redis = TEST_CONNECTION
-    field = fields.Field()
-
+    proxy = fields.Field()
 
 class TestFields:
 
     def test_types(self):
-        ppm = pureproxymodel()
-        assert type(ppm.field) is fields.commandproxy
-        assert type(ppm.field.get) is fields.callproxy
+        tm = testmodel()
+        # Proxy fields
+        assert type(tm.proxy) is fields.commandproxy
+        assert type(tm.proxy.get) is fields.callproxy
+        # Auto fields
+        assert isinstance(tm.auto, fields.autotype)
 
     @pytest.mark.parametrize('command,args,inverse,invargs', [
         ('HSET', (b'<string>', 1), 'HKEYS', ()),
@@ -33,9 +35,7 @@ class TestFields:
         ('LPUSH', (b'<string>',), 'LRANGE', (0, -1))
     ])
     def test_proxy(self, command, args, inverse, invargs):
-        ppm = pureproxymodel()
-        proxy = getattr(ppm.field, command.lower())
-        iproxy = getattr(ppm.field, inverse.lower())
+        tm = testmodel()
+        proxy = getattr(tm.proxy, command.lower())
+        iproxy = getattr(tm.proxy, inverse.lower())
         assert all(x == y for x, y in zip(args, iproxy(*invargs)))
-
-

@@ -1,3 +1,5 @@
+from . import exceptions
+
 class BaseField:
 
     _namesep = ':'
@@ -25,12 +27,15 @@ class Field(BaseField):
         if this is None:
             raise TypeError('Expected instance, None found')
         key = self.qualified()
-        return self._type(key, this) if self.auto else commandproxy(key, this)
+        if self.auto:
+            return self._auto(key, this)
+        else:
+            return commandproxy(key, this, self)
 
     def __set__(self, this, value):
         if not isinstance(value, autotype):
             raise TypeError('Field.__set__ only works for Auto fields')
-        self._type.save(self.qualified(), this, value)
+        self._auto.save(self.qualified(), this, value)
 
 
 
@@ -52,10 +57,13 @@ class callproxy:
 
 class commandproxy:
 
-    def __init__(self, key, model):
-        self.key, self.model = key, model
+    def __init__(self, key, model, field):
+        self.key, self.model, self.field = key, model, field
 
     def __getattr__(self, attr):
+        if attr not in self.field._allowed_commands:
+            raise exceptions.InvalidCommand('{!r} is an invalid command'
+                                            ' for {!r}'.format(self.key))
         return callproxy(self.key, self.model, attr)
 
     def __repr__(self):
@@ -113,16 +121,23 @@ class _Hash(autotype, dict):
 
 
 class Set(Field):
-    _type = _Set
+    _auto = _Set
+    _allowed_commands = frozenset('SADD SCARD SDIFF SDIFFSTORE SINTER '
+                                  'SINTERSTORE SISMEMBER SMEMBERS SMOVE SPOP '
+                                  'SRANDMEMBER SREM SUNION SUNIONSTORE '
+                                  'SSCAN'.lower().split())
 
 class List(Field):
-    _type = _List
+    _auto = _List
+    _allowed_commands = frozenset('BLPOP BRPOP BRPOPLPUSH LINDEX LINSERT LLEN '
+                                  'LPOP LPUSH LPUSHX LRANGE LREM LSET LTRIM '
+                                  'RPOP RPOPLPUSH RPUSH RPUSHX '.lower().split())
 
 class Integer(Field):
-    _type = _Integer
+    _auto = _Integer
 
 class String(Field):
-    _type = _String
+    _auto = _String
 
 class Hash(Field):
-    _type = _Hash
+    _auto = _Hash
