@@ -30,7 +30,7 @@ class Field(BaseField):
         if self.auto:
             return self._auto(key, this)
         else:
-            return commandproxy(key, this, self)
+            return commandproxy(key, this)
 
     def __set__(self, this, value):
         if not isinstance(value, autotype):
@@ -61,9 +61,6 @@ class commandproxy:
         self.key, self.model, self.field = key, model, field
 
     def __getattr__(self, attr):
-        if attr not in self.field._allowed_commands:
-            raise exceptions.InvalidCommand('{!r} is an invalid command'
-                                            ' for {!r}'.format(self.key))
         return callproxy(self.key, self.model, attr)
 
     def __repr__(self):
@@ -122,16 +119,9 @@ class _Hash(autotype, dict):
 
 class Set(Field):
     _auto = _Set
-    _allowed_commands = frozenset('SADD SCARD SDIFF SDIFFSTORE SINTER '
-                                  'SINTERSTORE SISMEMBER SMEMBERS SMOVE SPOP '
-                                  'SRANDMEMBER SREM SUNION SUNIONSTORE '
-                                  'SSCAN'.lower().split())
 
 class List(Field):
     _auto = _List
-    _allowed_commands = frozenset('BLPOP BRPOP BRPOPLPUSH LINDEX LINSERT LLEN '
-                                  'LPOP LPUSH LPUSHX LRANGE LREM LSET LTRIM '
-                                  'RPOP RPOPLPUSH RPUSH RPUSHX '.lower().split())
 
 class Integer(Field):
     _auto = _Integer
