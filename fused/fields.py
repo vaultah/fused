@@ -92,10 +92,12 @@ class _Set(autotype, set):
     def save(cls, key, model, value):
         pass
 
-    def remove(self, ):
-        return super().remove()
+    def remove(self, elem):
+        self.model.redis.srem(self.key, elem)
+        return super().remove(elem)
 
-    def pop(self, ):
+    def pop(self):
+        self.model.redis.spop(self.key)
         return super().pop()
 
     def update(self, ):
@@ -113,7 +115,8 @@ class _Set(autotype, set):
     def difference_update(self, ):
         return super().difference_update()
 
-    def clear(self, ):
+    def clear(self):
+        self.model.redis.delete(self.key)
         return super().clear()
 
     def add(self, elem):

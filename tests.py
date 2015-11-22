@@ -27,7 +27,7 @@ class TestFields:
         assert type(tm.proxy) is fields.commandproxy
         assert type(tm.proxy.get) is fields.callproxy
         # Auto fields
-        # assert isinstance(tm.auto, fields.autotype)
+        assert isinstance(tm.set, fields.autotype)
 
     @pytest.mark.parametrize('command,args,inverse,invargs', [
         ('HSET', (b'<string>', 1), 'HKEYS', ()),
@@ -44,12 +44,36 @@ class TestFields:
 
 class TestSet:
 
-    def test_blah_blah(self):
+    def test_add(self):
         tm = testmodel()
         assert not tm.set
+        assert not tm.set.smembers()
         tm.set.add(b'<string>')
         assert tm.set
         assert len(tm.set) == 1
         assert tm.set == {b'<string>'}
         assert tm.set.smembers()
         assert tm.set.smembers() == {b'<string>'}
+
+    def test_clear(self):
+        tm = testmodel()
+        tm.set.add(b'<string>')
+        tm.set.clear()
+        assert not tm.set
+        assert not tm.set.smembers()
+
+    def test_pop(self):
+        tm = testmodel()
+        tm.set.add(b'<string>')
+        tm.set.pop()
+        assert not tm.set
+        assert not tm.set.smembers()
+        with pytest.raises(KeyError):
+            tm.set.pop()
+
+    def test_remove(self):
+        tm = testmodel()
+        tm.set.add(b'<string>')
+        tm.set.remove(b'<string>')
+        assert not tm.set
+        assert not tm.set.smembers()
