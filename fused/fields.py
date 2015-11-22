@@ -57,8 +57,8 @@ class callproxy:
 
 class commandproxy:
 
-    def __init__(self, key, model, field):
-        self.key, self.model, self.field = key, model, field
+    def __init__(self, key, model):
+        self.key, self.model = key, model
 
     def __getattr__(self, attr):
         return callproxy(self.key, self.model, attr)
