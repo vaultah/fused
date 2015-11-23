@@ -77,3 +77,12 @@ class TestSet:
         tm.set.remove(b'<string>')
         assert not tm.set
         assert not tm.set.smembers()
+
+    def test_update(self):
+        tm = testmodel()
+        elems = [{b'a', b'b', b'c', b'd'},
+                 {b'e', b'f', b'g', b'h'}]
+        tm.set.update(*elems)
+        assert tm.set
+        assert tm.set == {e for tup in elems for e in tup}
+        assert tm.set.smembers() == {e for tup in elems for e in tup}

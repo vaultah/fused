@@ -104,8 +104,9 @@ class _Set(autotype, set):
         self.spop()
         return super().pop()
 
-    def update(self, ):
-        return super().update()
+    def update(self, *a):
+        self.sadd(*set.union(*a))
+        return super().update(*a)
 
     def symmetric_difference_update(self, ):
         return super().symmetric_difference_update()
