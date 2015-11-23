@@ -74,18 +74,22 @@ class commandproxy:
                     self.key, id(self))
 
 
-class autotype:
+class autotype(commandproxy):
 
     def __init__(self, key, model):
-        self.key, self.model = key, model
-        super().__init__(self._get())
+        super().__init__(key, model)
 
 
 # Types
 
 class _Set(autotype, set):
 
-    def _get(self):
+    def __init__(self, key, model):
+        super().__init__(key, model)
+        set.__init__(self.fetch())
+
+    def fetch(self):
+        # Fetches the data immediately
         return self.model.__redis__.smembers(self.key)
 
     @classmethod
@@ -93,11 +97,11 @@ class _Set(autotype, set):
         pass
 
     def remove(self, elem):
-        self.model.redis.srem(self.key, elem)
+        self.srem(elem)
         return super().remove(elem)
 
     def pop(self):
-        self.model.redis.spop(self.key)
+        self.spop()
         return super().pop()
 
     def update(self, ):
@@ -116,11 +120,11 @@ class _Set(autotype, set):
         return super().difference_update()
 
     def clear(self):
-        self.model.redis.delete(self.key)
+        self.delete()
         return super().clear()
 
     def add(self, elem):
-        self.model.redis.sadd(self.key, elem)
+        self.sadd(elem)
         return super().add(elem)
 
     def __ixor__(self, ):
@@ -131,9 +135,6 @@ class _Set(autotype, set):
 
     def __iand__(self, ):
         return super().__iand__()
-
-    def __getattr__(self, attr):
-        return callproxy(self.key, self.model, attr)
 
 
 class Set(Field):
