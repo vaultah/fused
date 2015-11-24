@@ -1,48 +1,44 @@
 from . import exceptions
 
+
 class BaseField:
-
-    _namesep = ':'
-
-    def qualified(self, arg=None):
-        parts = [self.model_name, self.name]
-        if arg is not None:
-            parts.append(arg)
-        return self._namesep.join(parts)
+    pass
 
 
 class Field(BaseField):
 
-    _auto_cache = {}
+    _cache = {}
 
-    def __init__(self, unique=False, indexable=False, required=False,
-                       auto=False):
-        if unique or auto:
-            indexable = True
+    def __init__(self, *, unique=False, standalone=False, auto=False,
+                          required=False):
+
+        if auto:
+            standalone = True
 
         self.unique = unique
-        self.indexable = indexable
         self.required = required
+        self.standalone = standalone
         self.auto = auto
 
     def __get__(self, this, type):
         if this is None:
             raise TypeError('Expected instance, None found')
-        key = self.qualified()
-        if self.auto:
-            try:
-                return self._auto_cache[this, self.name]
-            except KeyError:
-                retv = self._auto_cache[this, self.name] = self._auto(key, this)
-                return retv
-        else:
-            return commandproxy(key, this)
+        key = this.qualified(self.name, pk='')
+        if not self.standalone:
+            # Coerce and return an instance of a corresponding Python type
+            return 'TODO'
+
+        try:
+            return self._cache[this, self.name]
+        except KeyError:
+            rv = self._auto(key, this) if self.auto else commandproxy(key, this)
+            self._cache[this, self.name] = rv
+            return rv
 
     def __set__(self, this, value):
         if not isinstance(value, autotype):
             raise TypeError('Field.__set__ only works for Auto fields')
-        self._auto.save(self.qualified(), this, value)
-
+        self._auto.save(this.qualified(self.name, pk=''), this, value)
 
 
 # Proxy classes

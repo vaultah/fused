@@ -16,7 +16,7 @@ def flushdb():
 
 class testmodel(model.BaseModel):
     redis = TEST_CONNECTION
-    proxy = fields.Field()
+    standalone = fields.Set(standalone=True)
     set = fields.Set(auto=True)
 
 class TestFields:
@@ -24,9 +24,10 @@ class TestFields:
     def test_types(self):
         tm = testmodel()
         # Proxy fields
-        assert type(tm.proxy) is fields.commandproxy
-        assert type(tm.proxy.get) is fields.callproxy
+        assert type(tm.standalone) is fields.commandproxy
+        assert type(tm.standalone.get) is fields.callproxy
         # Auto fields
+        assert isinstance(tm.set, fields.autotype)
         assert isinstance(tm.set, fields.autotype)
 
     @pytest.mark.parametrize('command,args,inverse,invargs', [
@@ -37,8 +38,8 @@ class TestFields:
     ])
     def test_proxy(self, command, args, inverse, invargs):
         tm = testmodel()
-        proxy = getattr(tm.proxy, command.lower())
-        iproxy = getattr(tm.proxy, inverse.lower())
+        proxy = getattr(tm.standalone, command.lower())
+        iproxy = getattr(tm.standalone, inverse.lower())
         assert all(x == y for x, y in zip(args, iproxy(*invargs)))
 
 
@@ -138,3 +139,7 @@ class TestSet:
     # TODO: Test augmented assignment operators as well?
     # TODO: They're implemented using tested methods, I see no point in
     # TODO: testing them specifically.
+
+
+
+

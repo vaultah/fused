@@ -7,9 +7,12 @@ class MetaModel(ABCMeta):
     def __new__(mcs, model_name, base, attrs):
         cls = super().__new__(mcs, model_name, base, attrs)
         cls._fields = {}
+        # Pre-generated DB keys (they're constant)
+        cls._unique_keys = {}
         cls._unique_fields = {}
-        cls._indexable_fields = {}
         cls._required_fields = {}
+        cls._standalone_proxy = {}
+        cls._standalone_auto = {}
 
         field_attrs = ((k, v) for k, v in attrs.items()
                          if isinstance(v, fields.BaseField))
@@ -19,16 +22,17 @@ class MetaModel(ABCMeta):
 
             if field.unique:
                 cls._unique_fields[name] = field
+                cls._unique_keys[name] = cls.qualified(name)
 
             if field.required:
                 cls._required_fields[name] = field
 
-            if field.indexable:
-                cls._indexable_fields[name] = field
         return cls
                     
 
 class BaseModel(metaclass=MetaModel):
+
+    _field_sep = ':'
 
     def __init__(self, **ka):
         self.__context_depth__ = 0
@@ -60,3 +64,11 @@ class BaseModel(metaclass=MetaModel):
             self.redis.execute()
             self.redis.__exit__(exc_type, exc_value, traceback)
             self.redis = self.__redis__
+
+    @classmethod
+    def qualified(cls, *args, pk=None):
+        parts = [cls.__name__]
+        if pk is not None:
+            parts.append(pk)
+        parts.extend(args)
+        return cls._field_sep.join(parts)
