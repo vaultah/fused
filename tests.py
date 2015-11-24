@@ -84,5 +84,8 @@ class TestSet:
                  {b'e', b'f', b'g', b'h'}]
         tm.set.update(*elems)
         assert tm.set
-        assert tm.set == {e for tup in elems for e in tup}
-        assert tm.set.smembers() == {e for tup in elems for e in tup}
+        flat = {e for tup in elems for e in tup}
+        assert tm.set == flat
+        assert tm.set.smembers() == flat
+
+    

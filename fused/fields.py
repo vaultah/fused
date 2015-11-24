@@ -101,15 +101,16 @@ class _Set(autotype, set):
         return super().remove(elem)
 
     def pop(self):
-        self.spop()
-        return super().pop()
+        elem = super().pop()
+        self.srem(elem)
+        return elem
 
     def update(self, *a):
         self.sadd(*set.union(*a))
         return super().update(*a)
 
-    def symmetric_difference_update(self, ):
-        return super().symmetric_difference_update()
+    def symmetric_difference_update(self, other):
+        return super().symmetric_difference_update(other)
 
     def intersection_update(self, ):
         return super().intersection_update()
