@@ -88,4 +88,14 @@ class TestSet:
         assert tm.set == flat
         assert tm.set.smembers() == flat
 
-    
+    def test_symmetric_difference_update(self):
+        tm = testmodel()
+        tm.set.add(b'a')
+        tm.set.add(b'b')
+        other = {b'b', b'c'}
+        # The result of tm.set ^ other
+        symdiff = {b'a', b'c'}
+        assert tm.set ^ other == symdiff
+        tm.set.symmetric_difference_update(other)
+        assert tm.set == symdiff
+        assert tm.set.smembers() == symdiff

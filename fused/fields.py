@@ -110,6 +110,10 @@ class _Set(autotype, set):
         return super().update(*a)
 
     def symmetric_difference_update(self, other):
+        # (self ∪ other) ∖ (self ∩ other)
+        # TODO: Should this be pipelined?
+        self.sadd(*other)
+        self.srem(*self.intersection(other))
         return super().symmetric_difference_update(other)
 
     def intersection_update(self, ):
