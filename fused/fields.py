@@ -1,6 +1,5 @@
 from . import exceptions
 
-
 class BaseField:
     pass
 
@@ -52,6 +51,8 @@ class Field(BaseField):
 # Proxy classes
 
 class callproxy:
+
+    __slots__ = ('key', 'attr', 'method')
 
     def __init__(self, key, model, attr):
         self.key, self.attr = key, attr
@@ -156,6 +157,49 @@ class _Set(autotype, set):
     def __iand__(self, other):
         return self.intersection_update(other)
 
+
+class _List(autotype, list):
+
+    def __init__(self, key, model):
+        super().__init__(key, model)
+        list.__init__(self.fetch())
+
+    def fetch(self):
+        # Fetches the data immediately
+        return self.model.__redis__.lrange(self.key, 0, -1)
+
+    def sort(self):
+        # TODO: I don't know how to do this D:
+        pass
+
+    def append(self, ):
+        # self.
+        return super().append()
+
+    def clear(self, ):
+        # self.
+        return super().clear()
+
+    def extend(self, ):
+        # self.
+        return super().extend()
+
+    def insert(self, ):
+        # self.
+        return super().insert()
+
+    def pop(self, ):
+        # self.
+        return super().pop()
+
+    def remove(self, ):
+        # self.
+        return super().remove()
+
+
+
+class List(Field):
+    _type = _List
 
 class Set(Field):
     _type = _Set
