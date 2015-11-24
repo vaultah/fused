@@ -25,7 +25,8 @@ class Field(BaseField):
 
     def __get__(self, this, type):
         if this is None:
-            raise TypeError('Expected instance of , None found')
+            raise TypeError('Expected instance of {!r}, '
+                            'None found'.format(self.model_name))
         key = this.qualified(self.name, pk='')
         if not self.standalone:
             # Coerce the value and return an instance of the corresponding
@@ -43,7 +44,8 @@ class Field(BaseField):
         if not self.standalone:
             raise TypeError('Field.__set__ only works for standalone fields')
         if this is None:
-            raise TypeError('Expected instance of , None found')
+            raise TypeError('Expected instance of {!r}, '
+                            'None found'.format(self.model_name))
         self._type.save(this.qualified(self.name, pk=''), this, value)
 
 
