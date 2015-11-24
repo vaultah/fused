@@ -105,9 +105,9 @@ class _Set(autotype, set):
         self.srem(elem)
         return elem
 
-    def update(self, *a):
-        self.sadd(*set.union(*a))
-        return super().update(*a)
+    def update(self, *other):
+        self.sadd(*set.union(*other))
+        return super().update(*other)
 
     def symmetric_difference_update(self, other):
         # (self ∪ other) ∖ (self ∩ other)
@@ -116,8 +116,11 @@ class _Set(autotype, set):
         self.srem(*self.intersection(other))
         return super().symmetric_difference_update(other)
 
-    def intersection_update(self, ):
-        return super().intersection_update()
+    def intersection_update(self, *other):
+        diff = self - self.intersection(*other)
+        # self \ (self \ (self.intersection(*other)))
+        self.srem(*diff)
+        return super().difference_update(diff)
 
     def discard(self, ):
         return super().discard()

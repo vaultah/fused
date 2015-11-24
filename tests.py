@@ -99,3 +99,15 @@ class TestSet:
         tm.set.symmetric_difference_update(other)
         assert tm.set == symdiff
         assert tm.set.smembers() == symdiff
+
+    def test_intersection_update(self):
+        tm = testmodel()
+        tm.set.add(b'a')
+        tm.set.add(b'b')
+        tm.set.add(b'c')
+        other = {b'b', b'c', b'd'}, {b'c', b'd', b'e'}
+        intersection = {b'c'}
+        assert tm.set.intersection(*other) == intersection
+        tm.set.intersection_update(*other)
+        assert tm.set == intersection
+        assert tm.set.smembers() == intersection
