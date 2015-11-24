@@ -77,14 +77,25 @@ class TestSet:
         tm.set.remove(b'<string>')
         assert not tm.set
         assert not tm.set.smembers()
+        with pytest.raises(KeyError):
+            tm.set.remove(b'<string>')
+
+    def test_discard(self):
+        tm = testmodel()
+        tm.set.add(b'a')
+        tm.set.discard(b'a')
+        assert not tm.set
+        assert not tm.set.smembers()
+        # No exception if the element is not present
+        tm.set.discard(b'a')
 
     def test_update(self):
         tm = testmodel()
-        elems = [{b'a', b'b', b'c', b'd'},
-                 {b'e', b'f', b'g', b'h'}]
-        tm.set.update(*elems)
+        other = ({b'a', b'b', b'c', b'd'},
+                 {b'e', b'f', b'g', b'h'})
+        tm.set.update(*other)
         assert tm.set
-        flat = {e for tup in elems for e in tup}
+        flat = {e for tup in other for e in tup}
         assert tm.set == flat
         assert tm.set.smembers() == flat
 
@@ -105,17 +116,25 @@ class TestSet:
         tm.set.add(b'a')
         tm.set.add(b'b')
         tm.set.add(b'c')
-        other = {b'b', b'c', b'd'}, {b'c', b'd', b'e'}
+        other = ({b'b', b'c', b'd'}, {b'c', b'd', b'e'})
         intersection = {b'c'}
         assert tm.set.intersection(*other) == intersection
         tm.set.intersection_update(*other)
         assert tm.set == intersection
         assert tm.set.smembers() == intersection
 
-    def test_discard(self):
+    def test_difference_update(self):
         tm = testmodel()
         tm.set.add(b'a')
-        tm.set.discard(b'a')
-        assert not tm.set
-        assert not tm.set.smembers()
-        tm.set.discard(b'a')
+        tm.set.add(b'b')
+        tm.set.add(b'c')
+        other = ({b'b'}, {b'c'})
+        diff = {b'a'}
+        assert tm.set.difference(*other) == diff
+        tm.set.difference_update(*other)
+        assert tm.set == {b'a'}
+        assert tm.set.smembers() == {b'a'}
+
+    # TODO: Test augmented assignment operators as well?
+    # TODO: They're implemented using tested methods, I see no point in
+    # TODO: testing them specifically.

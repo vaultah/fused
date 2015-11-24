@@ -94,16 +94,31 @@ class _Set(autotype, set):
 
     @classmethod
     def save(cls, key, model, value):
-        pass
+        # TODO: Is there a better way?
+        # TODO: Should these be pipelined?
+        model.__redis__.delete(key)
+        model.__redis__.sadd(key, *value)
 
-    def remove(self, elem):
-        self.srem(elem)
-        return super().remove(elem)
+    def add(self, elem):
+        self.sadd(elem)
+        return super().add(elem)
+
+    def clear(self):
+        self.delete()
+        return super().clear()
 
     def pop(self):
         elem = super().pop()
         self.srem(elem)
         return elem
+
+    def remove(self, elem):
+        self.srem(elem)
+        return super().remove(elem)
+
+    def discard(self, elem):
+        self.srem(elem)
+        return super().discard(elem)
 
     def update(self, *other):
         union = set.union(*other)
@@ -112,7 +127,7 @@ class _Set(autotype, set):
 
     def symmetric_difference_update(self, other):
         # (self ∪ other) ∖ (self ∩ other)
-        # TODO: Should this be pipelined?
+        # TODO: Should these be pipelined?
         self.sadd(*other)
         self.srem(*self.intersection(other))
         return super().symmetric_difference_update(other)
@@ -123,22 +138,10 @@ class _Set(autotype, set):
         self.srem(*diff)
         return super().difference_update(diff)
 
-    def discard(self, elem):
-        self.srem(elem)
-        return super().discard(elem)
-
     def difference_update(self, *other):
         union = set.union(*other)
         self.srem(*union)
         return super().difference_update(union)
-
-    def clear(self):
-        self.delete()
-        return super().clear()
-
-    def add(self, elem):
-        self.sadd(elem)
-        return super().add(elem)
 
     def __ixor__(self, other):
         return self.symmetric_difference_update(other)
