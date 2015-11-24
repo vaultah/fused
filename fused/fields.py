@@ -122,8 +122,9 @@ class _Set(autotype, set):
         self.srem(*diff)
         return super().difference_update(diff)
 
-    def discard(self, ):
-        return super().discard()
+    def discard(self, elem):
+        self.srem(elem)
+        return super().discard(elem)
 
     def difference_update(self, ):
         return super().difference_update()

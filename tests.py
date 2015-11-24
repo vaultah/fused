@@ -111,3 +111,11 @@ class TestSet:
         tm.set.intersection_update(*other)
         assert tm.set == intersection
         assert tm.set.smembers() == intersection
+
+    def test_discard(self):
+        tm = testmodel()
+        tm.set.add(b'a')
+        tm.set.discard(b'a')
+        assert not tm.set
+        assert not tm.set.smembers()
+        tm.set.discard(b'a')
