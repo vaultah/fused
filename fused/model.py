@@ -16,13 +16,23 @@ class MetaModel(ABCMeta):
 
         field_attrs = ((k, v) for k, v in attrs.items()
                          if isinstance(v, fields.BaseField))
+
         for name, field in field_attrs:
             field.name, field.model_name = name, model_name
             cls._fields[name] = field
+            if isinstance(field, fields.PrimaryKey):
+                cls.pk = name
 
             if field.unique:
                 cls._unique_fields[name] = field
                 cls._unique_keys[name] = cls.qualified(name)
+            elif field.standalone:
+                if field.auto:
+                    cls._standalone_auto[name] = field
+                else:
+                    cls._standalone_proxy[name] = field
+            else:
+                pass
 
             if field.required:
                 cls._required_fields[name] = field
@@ -33,6 +43,7 @@ class MetaModel(ABCMeta):
 class BaseModel(metaclass=MetaModel):
 
     _field_sep = ':'
+    pk = 'id'
 
     def __init__(self, **ka):
         self.__context_depth__ = 0
@@ -72,3 +83,30 @@ class BaseModel(metaclass=MetaModel):
             parts.append(pk)
         parts.extend(args)
         return cls._field_sep.join(parts)
+
+    @classmethod
+    def new(cls, **ka):
+        if cls._required_fields.keys() - ka.keys():
+            raise Exception # TODO
+        if cls.pk not in ka:
+            # TODO: ka[cls.pk] = generate_pk()
+            pass
+
+        # def _test_uniqueness(pipe):
+        #     pipe.multi()
+        #     for k, v in ka.items():
+        #         try:
+        #             key = cls._unique_keys[k]
+        #         except KeyError:
+        #             continue
+        #         else:
+        #             pipe.hexists(key, v)
+
+        # res = cls.__redis__.transaction(_test_uniqueness, *cls._unique_keys)
+        # # Not unique
+        # if any(res):
+        #     raise Exception # TODO
+
+        # for key, value in cls._unique_keys.items():
+        # 
+        # TODO: Check and set through EVALSHA

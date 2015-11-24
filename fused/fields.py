@@ -15,6 +15,9 @@ class Field(BaseField):
         if auto:
             standalone = True
 
+        if unique:
+            required = True
+
         self.unique = unique
         self.required = required
         self.standalone = standalone
@@ -22,23 +25,26 @@ class Field(BaseField):
 
     def __get__(self, this, type):
         if this is None:
-            raise TypeError('Expected instance, None found')
+            raise TypeError('Expected instance of , None found')
         key = this.qualified(self.name, pk='')
         if not self.standalone:
-            # Coerce and return an instance of a corresponding Python type
+            # Coerce the value and return an instance of the corresponding
+            # Python type
             return 'TODO'
 
         try:
             return self._cache[this, self.name]
         except KeyError:
-            rv = self._auto(key, this) if self.auto else commandproxy(key, this)
+            rv = self._type(key, this) if self.auto else commandproxy(key, this)
             self._cache[this, self.name] = rv
             return rv
 
     def __set__(self, this, value):
-        if not isinstance(value, autotype):
-            raise TypeError('Field.__set__ only works for Auto fields')
-        self._auto.save(this.qualified(self.name, pk=''), this, value)
+        if not self.standalone:
+            raise TypeError('Field.__set__ only works for standalone fields')
+        if this is None:
+            raise TypeError('Expected instance of , None found')
+        self._type.save(this.qualified(self.name, pk=''), this, value)
 
 
 # Proxy classes
@@ -150,4 +156,8 @@ class _Set(autotype, set):
 
 
 class Set(Field):
-    _auto = _Set
+    _type = _Set
+
+
+class PrimaryKey(Field):
+    pass
