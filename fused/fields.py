@@ -106,8 +106,9 @@ class _Set(autotype, set):
         return elem
 
     def update(self, *other):
-        self.sadd(*set.union(*other))
-        return super().update(*other)
+        union = set.union(*other)
+        self.sadd(*union)
+        return super().update(union)
 
     def symmetric_difference_update(self, other):
         # (self ∪ other) ∖ (self ∩ other)
@@ -117,8 +118,8 @@ class _Set(autotype, set):
         return super().symmetric_difference_update(other)
 
     def intersection_update(self, *other):
-        diff = self - self.intersection(*other)
         # self \ (self \ (self.intersection(*other)))
+        diff = self - self.intersection(*other)
         self.srem(*diff)
         return super().difference_update(diff)
 
@@ -126,8 +127,10 @@ class _Set(autotype, set):
         self.srem(elem)
         return super().discard(elem)
 
-    def difference_update(self, ):
-        return super().difference_update()
+    def difference_update(self, *other):
+        union = set.union(*other)
+        self.srem(*union)
+        return super().difference_update(union)
 
     def clear(self):
         self.delete()
@@ -137,14 +140,14 @@ class _Set(autotype, set):
         self.sadd(elem)
         return super().add(elem)
 
-    def __ixor__(self, ):
-        return super().__ixor__()
+    def __ixor__(self, other):
+        return self.symmetric_difference_update(other)
 
-    def __ior__(self, ):
-        return super().__ior__()
+    def __ior__(self, other):
+        return self.update(other)
 
-    def __iand__(self, ):
-        return super().__iand__()
+    def __iand__(self, other):
+        return self.intersection_update(other)
 
 
 class Set(Field):
