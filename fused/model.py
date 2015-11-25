@@ -37,6 +37,8 @@ class MetaModel(ABCMeta):
             if field.required:
                 cls._required_fields[name] = field
 
+            cls.__redis__ = cls.redis
+
         return cls
                     
 
@@ -46,9 +48,6 @@ class BaseModel(metaclass=MetaModel):
 
     def __init__(self, **ka):
         self.__context_depth__ = 0
-        self.__redis__ = self.redis
-        for field in self._fields.values():
-            field.model = self
         if ka:
             # Will only search by one pair
             if len(ka) > 1:
