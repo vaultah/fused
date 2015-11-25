@@ -1,4 +1,4 @@
-from . import exceptions
+from . import exceptions, utils
 
 class BaseField:
     pass

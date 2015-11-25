@@ -1,4 +1,4 @@
-from . import fields
+from . import fields, utils
 from abc import ABCMeta
 
 
