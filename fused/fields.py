@@ -35,7 +35,7 @@ class Field(BaseField):
         try:
             return self._cache[this, self.name]
         except KeyError:
-            rv = self._type(key, this) if self.auto else commandproxy(key, this)
+            rv = self.type(key, this) if self.auto else commandproxy(key, this)
             self._cache[this, self.name] = rv
             return rv
 
@@ -45,7 +45,11 @@ class Field(BaseField):
         if this is None:
             raise TypeError('Expected instance of {!r}, '
                             'None found'.format(self.model_name))
-        self._type.save(this.qualified(self.name, pk=''), this, value)
+        self.type.save(this.qualified(self.name, pk=''), this, value)
+
+    def __delete__(self, this):
+        # TODO
+        pass
 
 
 # Proxy classes
@@ -199,10 +203,10 @@ class _List(autotype, list):
 
 
 class List(Field):
-    _type = _List
+    type = _List
 
 class Set(Field):
-    _type = _Set
+    type = _Set
 
 
 class PrimaryKey(Field):
