@@ -1,5 +1,6 @@
 from . import fields, utils
 from abc import ABCMeta
+import
 
 
 class MetaModel(ABCMeta):
@@ -13,6 +14,7 @@ class MetaModel(ABCMeta):
         cls._required_fields = {}
         cls._standalone_proxy = {}
         cls._standalone_auto = {}
+        cls._scripts = {}
 
         field_attrs = ((k, v) for k, v in attrs.items()
                          if isinstance(v, fields.BaseField))
@@ -37,7 +39,14 @@ class MetaModel(ABCMeta):
             if field.required:
                 cls._required_fields[name] = field
 
-            cls.__redis__ = cls.redis
+        # TODO: Wat do?
+        # E   AttributeError: type object 'BaseModel' has no attribute 'redis'
+
+        # cls.__redis__ = cls.redis
+        # # We can register those now and change the connection later
+        # if cls._unique_fields:
+        #     cls._scripts['unique'] = cls.__redis__.register_script(
+        #                                             utils.SCRIPTS['unique'])
 
         return cls
                     
