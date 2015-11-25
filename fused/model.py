@@ -1,6 +1,5 @@
 from . import fields, utils
 from abc import ABCMeta
-import
 
 
 class MetaModel(ABCMeta):
@@ -42,7 +41,6 @@ class MetaModel(ABCMeta):
         # TODO: Wat do?
         # E   AttributeError: type object 'BaseModel' has no attribute 'redis'
 
-        # cls.__redis__ = cls.redis
         # # We can register those now and change the connection later
         # if cls._unique_fields:
         #     cls._scripts['unique'] = cls.__redis__.register_script(
@@ -56,6 +54,7 @@ class BaseModel(metaclass=MetaModel):
     _field_sep = ':'
 
     def __init__(self, **ka):
+        self.__redis__ = self.redis
         self.__context_depth__ = 0
         if ka:
             # Will only search by one pair
