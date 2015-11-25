@@ -43,7 +43,6 @@ class MetaModel(ABCMeta):
 class BaseModel(metaclass=MetaModel):
 
     _field_sep = ':'
-    pk = 'id'
 
     def __init__(self, **ka):
         self.__context_depth__ = 0
@@ -89,8 +88,7 @@ class BaseModel(metaclass=MetaModel):
         if cls._required_fields.keys() - ka.keys():
             raise Exception # TODO
         if cls.pk not in ka:
-            # TODO: ka[cls.pk] = generate_pk()
-            pass
+            raise Exception('No PK') # TODO
 
         # def _test_uniqueness(pipe):
         #     pipe.multi()
