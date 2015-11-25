@@ -18,6 +18,8 @@ class testmodel(model.BaseModel):
     redis = TEST_CONNECTION
     standalone = fields.Set(standalone=True)
     set = fields.Set(auto=True)
+    list = fields.List(auto=True)
+
 
 class TestFields:
 
@@ -41,6 +43,11 @@ class TestFields:
         proxy = getattr(tm.standalone, command.lower())
         iproxy = getattr(tm.standalone, inverse.lower())
         assert all(x == y for x, y in zip(args, iproxy(*invargs)))
+
+
+# TODO: Test augmented assignment operators as well?
+# TODO: They're implemented using tested methods, I see no point in
+# TODO: testing them specifically.
 
 
 class TestSet:
@@ -136,10 +143,41 @@ class TestSet:
         assert tm.set == {b'a'}
         assert tm.set.smembers() == {b'a'}
 
-    # TODO: Test augmented assignment operators as well?
-    # TODO: They're implemented using tested methods, I see no point in
-    # TODO: testing them specifically.
 
+class TestList:
 
+    def test_append(self):
+        tm = testmodel()
+        assert not tm.list
+        lst = [b'a', b'b']
+        for x in lst:
+            tm.list.append(x)
+        assert tm.list
+        assert len(tm.list) == 2
+        assert tm.list == lst
+        assert tm.list.lrange(0, -1) == lst
 
+    def test_extend(self):
+        tm = testmodel()
+        assert not tm.list
+        lst = [b'a', b'b']
+        tm.list.extend(lst)
+        assert tm.list
+        assert len(tm.list) == 2
+        assert tm.list == lst
+        assert tm.list.lrange(0, -1) == [b'a', b'b']
 
+    def test_clear(self):
+        tm = testmodel()
+        tm.list.append(b'<string>')
+        tm.list.clear()
+        assert not tm.list
+        assert not tm.list.lrange(0, -1)
+
+    def test_remove(self):
+        tm = testmodel()
+        lst = [b'a', b'b', b'a']
+        tm.list.extend(lst)
+        tm.list.remove(b'a')
+        # Only the first occurrence was removed
+        assert tm.list == lst[1:]

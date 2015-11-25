@@ -156,13 +156,16 @@ class _Set(autotype, set):
         return super().difference_update(union)
 
     def __ixor__(self, other):
-        return self.symmetric_difference_update(other)
+        self.symmetric_difference_update(other)
+        return self
 
     def __ior__(self, other):
-        return self.update(other)
+        self.update(other)
+        return self
 
     def __iand__(self, other):
-        return self.intersection_update(other)
+        self.intersection_update(other)
+        return self
 
 
 class _List(autotype, list):
@@ -175,33 +178,55 @@ class _List(autotype, list):
         # Fetches the data immediately
         return self.model.__redis__.lrange(self.key, 0, -1)
 
+    def append(self, elem):
+        return self.extend((elem,))
+
+    def extend(self, iterable):
+        self.rpush(*iterable)
+        return super().extend(iterable)
+
+    def clear(self):
+        self.delete()
+        return super().clear()
+
+    def remove(self, elem):
+        self.lrem(elem, 1)
+        return super().remove(elem)
+
+    def pop(self, index=-1):
+        elem = super().pop(index)
+        if not index:
+            self.lpop()
+        elif index == -1:
+            self.rpop()
+        else:
+            pass
+        # TODO: *sigh*
+        return elem
+
+    def insert(self):
+        # TODO: *sigh*
+        return super().insert()
+
     def sort(self):
         # TODO: I don't know how to do this D:
         pass
 
-    def append(self, ):
-        # self.
-        return super().append()
+    def __delitem__(self, index):
+        # TODO: Slice delete
+        pass
 
-    def clear(self, ):
-        # self.
-        return super().clear()
+    def __setitem__(self, index):
+        # TODO: Slice assignment
+        pass
 
-    def extend(self, ):
-        # self.
-        return super().extend()
+    def __iadd__(self, other):
+        self.extend(other)
+        return self
 
-    def insert(self, ):
-        # self.
-        return super().insert()
-
-    def pop(self, ):
-        # self.
-        return super().pop()
-
-    def remove(self, ):
-        # self.
-        return super().remove()
+    def __imul__(self, n):
+        self.extend(self * (n - 1))
+        return self
 
 
 
