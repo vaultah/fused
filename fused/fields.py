@@ -1,4 +1,6 @@
 from . import exceptions, utils
+from collections import defaultdict
+from weakref import WeakKeyDictionary
 
 
 class BaseField:
@@ -7,7 +9,7 @@ class BaseField:
 
 class Field(BaseField):
 
-    _cache = {}
+    _cache = defaultdict(WeakKeyDictionary)
 
     def __init__(self, *, unique=False, standalone=False, auto=False,
                           required=False):
@@ -34,10 +36,10 @@ class Field(BaseField):
             return 'TODO'
 
         try:
-            return self._cache[this, self.name]
+            return self._cache[self.name][this]
         except KeyError:
             rv = self.type(key, this) if self.auto else commandproxy(key, this)
-            self._cache[this, self.name] = rv
+            self._cache[self.name][this] = rv
             return rv
 
     def __set__(self, this, value):
