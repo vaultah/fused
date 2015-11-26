@@ -21,6 +21,14 @@ class testmodel(model.BaseModel):
     list = fields.List(auto=True)
 
 
+class fulltestmodel(model.BaseModel):
+    redis = TEST_CONNECTION
+    id = fields.PrimaryKey()
+    req1 = fields.String(required=True)
+    req2 = fields.String(required=True)
+    standalone = fields.Set(standalone=True)
+    set = fields.Set(auto=True)
+
 class TestFields:
 
     def test_types(self):
@@ -181,3 +189,10 @@ class TestList:
         tm.list.remove(b'a')
         # Only the first occurrence was removed
         assert tm.list == lst[1:]
+
+
+
+class TestModel:
+
+    def test_new(self):
+        fulltestmodel.new(id='', req1='', req2='')

@@ -240,3 +240,9 @@ class Set(Field):
 
 class PrimaryKey(Field):
     pass
+
+class String(Field):
+    pass
+
+class Integer(Field):
+    pass

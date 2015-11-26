@@ -1,11 +1,13 @@
 from . import fields, utils
 from abc import ABCMeta
+import json
 
 
 class MetaModel(ABCMeta):
 
     def __new__(mcs, model_name, base, attrs):
         cls = super().__new__(mcs, model_name, base, attrs)
+        cls._pk = None
         cls._fields = {}
         # Pre-generated DB keys (they're constant)
         cls._unique_keys = {}
@@ -22,7 +24,7 @@ class MetaModel(ABCMeta):
             field.name, field.model_name = name, model_name
             cls._fields[name] = field
             if isinstance(field, fields.PrimaryKey):
-                cls.pk = name
+                cls._pk = name
 
             if field.unique:
                 cls._unique_fields[name] = field
@@ -96,7 +98,7 @@ class BaseModel(metaclass=MetaModel):
     def new(cls, **ka):
         if cls._required_fields.keys() - ka.keys():
             raise Exception # TODO
-        if cls.pk not in ka:
+        if cls._pk not in ka:
             raise Exception('No PK') # TODO
 
         # def _test_uniqueness(pipe):
