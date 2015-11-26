@@ -38,13 +38,16 @@ class MetaModel(ABCMeta):
             if field.required:
                 cls._required_fields[name] = field
 
-        # TODO: Wat do?
-        # E   AttributeError: type object 'BaseModel' has no attribute 'redis'
-
-        # # We can register those now and change the connection later
-        # if cls._unique_fields:
-        #     cls._scripts['unique'] = cls.__redis__.register_script(
-        #                                             utils.SCRIPTS['unique'])
+        try:
+            cls.__redis__ = cls.redis
+        except AttributeError:
+            # Base model class, ignore it
+            pass
+        else:
+            # We can register those now and change the connection later
+            if cls._unique_fields:
+                cls._scripts['unique'] = cls.__redis__.register_script(
+                                                        utils.SCRIPTS['unique'])
 
         return cls
                     
@@ -54,7 +57,6 @@ class BaseModel(metaclass=MetaModel):
     _field_sep = ':'
 
     def __init__(self, **ka):
-        self.__redis__ = self.redis
         self.__context_depth__ = 0
         if ka:
             # Will only search by one pair
