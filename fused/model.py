@@ -101,21 +101,12 @@ class BaseModel(metaclass=MetaModel):
         if cls._pk not in ka:
             raise Exception('No PK') # TODO
 
-        # def _test_uniqueness(pipe):
-        #     pipe.multi()
-        #     for k, v in ka.items():
-        #         try:
-        #             key = cls._unique_keys[k]
-        #         except KeyError:
-        #             continue
-        #         else:
-        #             pipe.hexists(key, v)
+        # Must have the same order
+        keys, values = [], []
+        for k in cls._unique_keys.keys() & ka.keys():
+            keys.append(cls._unique_keys[k])
+            values.append(ka[k])
 
-        # res = cls.__redis__.transaction(_test_uniqueness, *cls._unique_keys)
-        # # Not unique
-        # if any(res):
-        #     raise Exception # TODO
-
-        # for key, value in cls._unique_keys.items():
-        # 
-        # TODO: Check and set through EVALSHA
+        encoded = json.dumps(values)
+        cls._scripts['unique'](keys=keys, args=[ka[cls._pk], encoded])
+        # Set the rest of fields

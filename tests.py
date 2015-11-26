@@ -24,10 +24,11 @@ class testmodel(model.BaseModel):
 class fulltestmodel(model.BaseModel):
     redis = TEST_CONNECTION
     id = fields.PrimaryKey()
-    req1 = fields.String(required=True)
+    unique = fields.String(unique=True)
     req2 = fields.String(required=True)
     standalone = fields.Set(standalone=True)
     set = fields.Set(auto=True)
+
 
 class TestFields:
 
@@ -195,4 +196,6 @@ class TestList:
 class TestModel:
 
     def test_new(self):
-        fulltestmodel.new(id='', req1='', req2='')
+        fulltestmodel.new(id='<irrelevant 1>', unique='<string>', req2='')
+        with pytest.raises(Exception):
+            fulltestmodel.new(id='<irrelevant 2>', unique='<string>', req2='')
