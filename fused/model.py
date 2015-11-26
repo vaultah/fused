@@ -15,6 +15,7 @@ class MetaModel(ABCMeta):
         cls._required_fields = {}
         cls._standalone_proxy = {}
         cls._standalone_auto = {}
+        cls._plain_fields = {}
         cls._scripts = {}
 
         field_attrs = ((k, v) for k, v in attrs.items()
@@ -35,10 +36,11 @@ class MetaModel(ABCMeta):
                 else:
                     cls._standalone_proxy[name] = field
             else:
-                pass
+                cls._plain_fields[name] = field
 
             if field.required:
                 cls._required_fields[name] = field
+
 
         try:
             cls.__redis__ = cls.redis
@@ -58,9 +60,11 @@ class BaseModel(metaclass=MetaModel):
 
     _field_sep = ':'
 
-    def __init__(self, **ka):
+    def __init__(self, data=None, **ka):
         self.__context_depth__ = 0
-        if ka:
+        if data is not None:
+            self.data = data.copy()
+        else:
             # Will only search by one pair
             if len(ka) > 1:
                 raise ValueError('Attempted to search by multiple fields;'
@@ -69,7 +73,13 @@ class BaseModel(metaclass=MetaModel):
             if field not in self._unique_fields:  
                 raise TypeError('Attempted to get by non-unique'
                                 ' field {!r}'.format(field))
-            self._data = self._get_unique(field, value)
+            self.data = self._get_unique(field, value)
+
+    def _get_unique(self, field, value):
+        pk = self.__redis__.hget(self.qualified(field), value)
+        res = self.__redis__.hgetall(self.qualified(pk=pk))
+        for field, value in cls._plain_fields.items():
+            res[field] = value.from_redis(res[field])
 
     def __enter__(self):
         if not self.__context_depth__:
@@ -107,6 +117,8 @@ class BaseModel(metaclass=MetaModel):
             keys.append(cls._unique_keys[k])
             values.append(ka[k])
 
-        encoded = json.dumps(values)
-        cls._scripts['unique'](keys=keys, args=[ka[cls._pk], encoded])
+        cls._scripts['unique'](args=[ka[cls._pk], json.dumps(values)],
+                               keys=keys)
+
         # Set the rest of fields
+        
