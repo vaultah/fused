@@ -86,11 +86,18 @@ class callproxy:
 
 class commandproxy:
 
+    _cache = defaultdict(WeakKeyDictionary)
+
     def __init__(self, key, model):
         self.key, self.model = key, model
 
     def __getattr__(self, attr):
-        return callproxy(self.key, self.model, attr)
+        try:
+            return self._cache[attr][self.model]
+        except KeyError:
+            rv = callproxy(self.key, self.model, attr)
+            self._cache[attr][self.model] = rv
+            return rv
 
     def __repr__(self):
         return '<command proxy for {!r} at {:#x}>'.format(
