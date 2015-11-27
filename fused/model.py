@@ -58,7 +58,7 @@ class MetaModel(ABCMeta):
         return cls
                     
 
-class BaseModel(metaclass=MetaModel):
+class Model(metaclass=MetaModel):
 
     _field_sep = ':'
 

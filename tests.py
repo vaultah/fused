@@ -13,7 +13,7 @@ def flushdb():
     TEST_CONNECTION.flushdb()
 
 
-class litetestmodel(model.BaseModel):
+class litetestmodel(model.Model):
     redis = TEST_CONNECTION
     id = fields.PrimaryKey()
     standalone = fields.Set(standalone=True)
@@ -21,7 +21,7 @@ class litetestmodel(model.BaseModel):
     list = fields.List(auto=True)
 
 
-class fulltestmodel(model.BaseModel):
+class fulltestmodel(model.Model):
     redis = TEST_CONNECTION
     id = fields.PrimaryKey()
     unique = fields.String(unique=True)
