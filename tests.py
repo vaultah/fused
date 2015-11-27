@@ -1,5 +1,5 @@
 import redis
-from fused import fields, model
+from fused import fields, model, exceptions
 import pytest
 
 
@@ -227,7 +227,7 @@ class TestModel:
               'required': ''}
         fulltestmodel.new(**ka)
         ka['id'] = '<irrelevant 2>'
-        with pytest.raises(Exception):
+        with pytest.raises(exceptions.DuplicateEntry):
             fulltestmodel.new(**ka)
 
     def test_new_auto(self):

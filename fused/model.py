@@ -1,4 +1,5 @@
-from . import fields, utils
+from . import fields, utils, exceptions
+import redis
 from abc import ABCMeta
 import json
 
@@ -120,21 +121,29 @@ class Model(metaclass=MetaModel):
     @classmethod
     def new(cls, **ka):
         if cls._required_fields.keys() - ka.keys():
-            raise Exception # TODO
+            raise exceptions.MissingFields
+            
         if cls._pk not in ka:
-            raise Exception('No PK') # TODO
+            raise exceptions.NoPrimaryKey
 
         pk = ka[cls._pk]
         
         if cls._unique_fields:
             # Must have the same order
-            keys, values = [], []
+            keys, values, fields = [], [], []
             for k in cls._unique_keys.keys() & ka.keys():
                 keys.append(cls._unique_keys[k])
+                fields.append(k)
                 values.append(ka[k])
 
-            cls._scripts['unique'](args=[pk, json.dumps(values)],
-                                   keys=keys)
+            res = cls._scripts['unique'](args=[pk, json.dumps(values)],
+                                         keys=keys)
+            # 0 for success
+            # 1 ... len(fields) is an error
+            #       (position of the first duplicate field from 'fields')
+            if res:
+                res -= 1
+                raise exceptions.DuplicateEntry(fields[res], values[res])
 
         main_key = cls.qualified(pk=pk)
         
