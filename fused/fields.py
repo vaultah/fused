@@ -1,6 +1,7 @@
 from . import exceptions, utils
 from collections import defaultdict
 from weakref import WeakKeyDictionary
+import ast
 
 
 class BaseField:
@@ -29,15 +30,16 @@ class Field(BaseField):
         if this is None:
             raise TypeError('Expected instance of {!r}, '
                             'None found'.format(self.model_name))
-        key = this.qualified(self.name, pk='')
+        key = this.qualified(self.name, pk=this.data[this._pk])
         if not self.standalone:
             # Coerce the value and return an instance of the corresponding
             # Python type
-            return 'TODO'
+            return this.data[self.name]
 
         try:
             return self._cache[self.name][this]
         except KeyError:
+            # TODO: Optimize auto fields by looking at this.data?
             rv = self.type(key, this) if self.auto else commandproxy(key, this)
             self._cache[self.name][this] = rv
             return rv
@@ -48,12 +50,20 @@ class Field(BaseField):
         if this is None:
             raise TypeError('Expected instance of {!r}, '
                             'None found'.format(self.model_name))
-        self.type.save(this.qualified(self.name, pk=''), this, value)
+        self.type.save(this.qualified(self.name, pk=this.data[this._pk]),
+                       this.__redis__, value)
 
     def __delete__(self, this):
         # TODO
         pass
 
+    @classmethod
+    def from_redis(cls, value):
+        return value.decode()
+
+    @classmethod
+    def to_redis(cls, value):
+        return str(value).encode()
 
 # Proxy classes
 
@@ -91,25 +101,24 @@ class autotype(commandproxy):
     def __init__(self, key, model):
         super().__init__(key, model)
 
-
 # Types
 
 class _Set(autotype, set):
 
     def __init__(self, key, model):
         super().__init__(key, model)
-        set.__init__(self.fetch())
+        set.__init__(self, self.fetch())
 
     def fetch(self):
-        # Fetches the data immediately
+        # Fetches the data immediately+
         return self.model.__redis__.smembers(self.key)
 
     @classmethod
-    def save(cls, key, model, value):
+    def save(cls, key, connection, value):
         # TODO: Is there a better way?
         # TODO: Should these be pipelined?
-        model.__redis__.delete(key)
-        model.__redis__.sadd(key, *value)
+        connection.delete(key)
+        connection.sadd(key, *value)
 
     def add(self, elem):
         self.sadd(elem)
@@ -167,16 +176,27 @@ class _Set(autotype, set):
         self.intersection_update(other)
         return self
 
+    def __repr__(self):
+        return str([x for x in self])
+
+
 
 class _List(autotype, list):
 
     def __init__(self, key, model):
         super().__init__(key, model)
-        list.__init__(self.fetch())
+        list.__init__(self, self.fetch())
 
     def fetch(self):
         # Fetches the data immediately
         return self.model.__redis__.lrange(self.key, 0, -1)
+
+    @classmethod
+    def save(cls, key, connection, value):
+        # TODO: Is there a better way?
+        # TODO: Should these be pipelined?
+        connection.delete(key)
+        connection.lpush(key, *value)
 
     def append(self, elem):
         return self.extend((elem,))
@@ -233,9 +253,19 @@ class _List(autotype, list):
 class List(Field):
     type = _List
 
+    # Default to_redis is fine, default from_redis isn't
+    @classmethod
+    def from_redis(cls, value):
+        return ast.literal_eval(value.decode())
+
 
 class Set(Field):
     type = _Set
+
+    # Default to_redis is fine, default from_redis isn't
+    @classmethod
+    def from_redis(cls, value):
+        return ast.literal_eval(value.decode())
 
 
 class PrimaryKey(Field):

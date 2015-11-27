@@ -21,13 +21,6 @@ class testmodel(model.BaseModel):
     list = fields.List(auto=True)
 
 
-class fulltestmodel(model.BaseModel):
-    redis = TEST_CONNECTION
-    id = fields.PrimaryKey()
-    unique = fields.String(unique=True)
-    req2 = fields.String(required=True)
-    standalone = fields.Set(standalone=True)
-    set = fields.Set(auto=True)
 
 
 class TestFields:
@@ -195,7 +188,52 @@ class TestList:
 
 class TestModel:
 
-    def test_new(self):
-        fulltestmodel.new(id='<irrelevant 1>', unique='<string>', req2='')
+    def test_new_plain(self):
+        # Plain fields
+        ka = {'id': '<irrelevant 1>', 'unique': '<string>',
+              'required': '', 'plain_set': {1, 2, 3}}
+        new = fulltestmodel.new(**ka)
+        for k in ka:
+            assert ka[k] == getattr(new, k)
+
+        # Load and test again
+        reloaded = fulltestmodel(id=ka['id'])
+
+        for k in ka:
+            assert ka[k] == getattr(reloaded, k)
+
+    def test_new_uniqueness(self):
+        ka = {'id': '<irrelevant 1>', 'unique': '<string>',
+              'required': ''}
+        fulltestmodel.new(**ka)
+        ka['id'] = '<irrelevant 2>'
         with pytest.raises(Exception):
-            fulltestmodel.new(id='<irrelevant 2>', unique='<string>', req2='')
+            fulltestmodel.new(**ka)
+
+    def test_new_auto(self):
+        val = {b'1', b'2', b'3'}
+        ka = {'id': '<irrelevant>', 'unique': '<string>',
+              'required': '', 'auto_set': val}
+        new = fulltestmodel.new(**ka)
+        assert isinstance(new.auto_set, fields.autotype)
+        assert isinstance(new.auto_set, fields.commandproxy)
+        assert new.auto_set == val
+        assert new.auto_set.smembers() == val
+
+    def test_new_proxy(self):
+        val = {b'1', b'2', b'3'}
+        ka = {'id': '<irrelevant>', 'unique': '<string>',
+              'required': '', 'proxy_set': val}
+        new = fulltestmodel.new(**ka)
+        assert isinstance(new.proxy_set, fields.commandproxy)
+        assert new.proxy_set.smembers() == val
+
+
+class fulltestmodel(model.BaseModel):
+    redis = TEST_CONNECTION
+    id = fields.PrimaryKey()
+    unique = fields.String(unique=True)
+    required = fields.String(required=True)
+    proxy_set = fields.Set(standalone=True)
+    auto_set = fields.Set(auto=True)
+    plain_set = fields.Set()

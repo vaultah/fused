@@ -13,9 +13,9 @@ class MetaModel(ABCMeta):
         cls._unique_keys = {}
         cls._unique_fields = {}
         cls._required_fields = {}
+        cls._plain_fields = {}
         cls._standalone_proxy = {}
         cls._standalone_auto = {}
-        cls._plain_fields = {}
         cls._scripts = {}
 
         field_attrs = ((k, v) for k, v in attrs.items()
@@ -41,6 +41,8 @@ class MetaModel(ABCMeta):
             if field.required:
                 cls._required_fields[name] = field
 
+        cls._standalone = dict(cls._standalone_proxy, **cls._standalone_auto)
+        cls._plain = dict(cls._unique_fields, **cls._plain_fields)
 
         try:
             cls.__redis__ = cls.redis
@@ -67,19 +69,26 @@ class BaseModel(metaclass=MetaModel):
         else:
             # Will only search by one pair
             if len(ka) > 1:
-                raise ValueError('Attempted to search by multiple fields;'
-                                 'use get_by for that')
+                raise ValueError('You can only search by 1 unique field')
             field, value = ka.popitem()
-            if field not in self._unique_fields:  
+            if field == self._pk:
+                self.data = self._get_by_pk(value)
+            elif field not in self._unique_fields:  
                 raise TypeError('Attempted to get by non-unique'
                                 ' field {!r}'.format(field))
-            self.data = self._get_unique(field, value)
+            else:
+                self.data = self._get_unique(field, value)
+
+    def _get_by_pk(self, pk):
+        res = self.__redis__.hgetall(self.qualified(pk=pk))
+        for field, value in self._plain.items():
+            rkey = fields.String.to_redis(field)
+            res[field] = value.from_redis(res[rkey])
+        return res
 
     def _get_unique(self, field, value):
         pk = self.__redis__.hget(self.qualified(field), value)
-        res = self.__redis__.hgetall(self.qualified(pk=pk))
-        for field, value in cls._plain_fields.items():
-            res[field] = value.from_redis(res[field])
+        return self._get_by_pk(field)
 
     def __enter__(self):
         if not self.__context_depth__:
@@ -111,14 +120,38 @@ class BaseModel(metaclass=MetaModel):
         if cls._pk not in ka:
             raise Exception('No PK') # TODO
 
+        pk = ka[cls._pk]
         # Must have the same order
         keys, values = [], []
         for k in cls._unique_keys.keys() & ka.keys():
             keys.append(cls._unique_keys[k])
             values.append(ka[k])
 
-        cls._scripts['unique'](args=[ka[cls._pk], json.dumps(values)],
+        cls._scripts['unique'](args=[pk, json.dumps(values)],
                                keys=keys)
 
-        # Set the rest of fields
+        main_key = cls.qualified(pk=pk)
         
+        # Set the rest of fields
+
+        # All standalone fields
+        for field, ob in cls._standalone.items():
+            try:
+                value = ka[field]
+            except KeyError:
+                continue
+            else:
+                ob.type.save(cls.qualified(field, pk=pk), cls.__redis__, value)
+
+        # Unique and plain fields
+        save, data = {cls._pk: pk}, {cls._pk: pk}
+        for field, ob in cls._plain.items():
+            try:
+                value = ka[field]
+            except KeyError:
+                continue
+            else:
+                save[field], data[field] = ob.to_redis(value), value
+
+        cls.__redis__.hmset(main_key, save)
+        return cls(data)
