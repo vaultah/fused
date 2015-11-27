@@ -81,14 +81,18 @@ class BaseModel(metaclass=MetaModel):
 
     def _get_by_pk(self, pk):
         res = self.__redis__.hgetall(self.qualified(pk=pk))
+        rv = {}
         for field, value in self._plain.items():
             rkey = fields.String.to_redis(field)
-            res[field] = value.from_redis(res[rkey])
-        return res
+            try:
+                rv[field] = value.from_redis(res[rkey])
+            except KeyError as e:
+                continue
+        return rv
 
     def _get_unique(self, field, value):
         pk = self.__redis__.hget(self.qualified(field), value)
-        return self._get_by_pk(field)
+        return self._get_by_pk(fields.PrimaryKey.from_redis(pk))
 
     def __enter__(self):
         if not self.__context_depth__:
@@ -121,14 +125,16 @@ class BaseModel(metaclass=MetaModel):
             raise Exception('No PK') # TODO
 
         pk = ka[cls._pk]
-        # Must have the same order
-        keys, values = [], []
-        for k in cls._unique_keys.keys() & ka.keys():
-            keys.append(cls._unique_keys[k])
-            values.append(ka[k])
+        
+        if cls._unique_fields:
+            # Must have the same order
+            keys, values = [], []
+            for k in cls._unique_keys.keys() & ka.keys():
+                keys.append(cls._unique_keys[k])
+                values.append(ka[k])
 
-        cls._scripts['unique'](args=[pk, json.dumps(values)],
-                               keys=keys)
+            cls._scripts['unique'](args=[pk, json.dumps(values)],
+                                   keys=keys)
 
         main_key = cls.qualified(pk=pk)
         

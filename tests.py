@@ -1,6 +1,5 @@
 import redis
 from fused import fields, model
-
 import pytest
 
 
@@ -14,19 +13,28 @@ def flushdb():
     TEST_CONNECTION.flushdb()
 
 
-class testmodel(model.BaseModel):
+class litetestmodel(model.BaseModel):
     redis = TEST_CONNECTION
+    id = fields.PrimaryKey()
     standalone = fields.Set(standalone=True)
     set = fields.Set(auto=True)
     list = fields.List(auto=True)
 
 
+class fulltestmodel(model.BaseModel):
+    redis = TEST_CONNECTION
+    id = fields.PrimaryKey()
+    unique = fields.String(unique=True)
+    required = fields.String(required=True)
+    proxy_set = fields.Set(standalone=True)
+    auto_set = fields.Set(auto=True)
+    plain_set = fields.Set()
 
 
 class TestFields:
 
     def test_types(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         # Proxy fields
         assert type(tm.standalone) is fields.commandproxy
         assert type(tm.standalone.get) is fields.callproxy
@@ -41,7 +49,7 @@ class TestFields:
         ('LPUSH', (b'<string>',), 'LRANGE', (0, -1))
     ])
     def test_proxy(self, command, args, inverse, invargs):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         proxy = getattr(tm.standalone, command.lower())
         iproxy = getattr(tm.standalone, inverse.lower())
         assert all(x == y for x, y in zip(args, iproxy(*invargs)))
@@ -55,7 +63,7 @@ class TestFields:
 class TestSet:
 
     def test_add(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         assert not tm.set
         assert not tm.set.smembers()
         tm.set.add(b'<string>')
@@ -66,14 +74,14 @@ class TestSet:
         assert tm.set.smembers() == {b'<string>'}
 
     def test_clear(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         tm.set.add(b'<string>')
         tm.set.clear()
         assert not tm.set
         assert not tm.set.smembers()
 
     def test_pop(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         tm.set.add(b'<string>')
         tm.set.pop()
         assert not tm.set
@@ -82,7 +90,7 @@ class TestSet:
             tm.set.pop()
 
     def test_remove(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         tm.set.add(b'<string>')
         tm.set.remove(b'<string>')
         assert not tm.set
@@ -91,7 +99,7 @@ class TestSet:
             tm.set.remove(b'<string>')
 
     def test_discard(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         tm.set.add(b'a')
         tm.set.discard(b'a')
         assert not tm.set
@@ -100,7 +108,7 @@ class TestSet:
         tm.set.discard(b'a')
 
     def test_update(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         other = ({b'a', b'b', b'c', b'd'},
                  {b'e', b'f', b'g', b'h'})
         tm.set.update(*other)
@@ -110,7 +118,7 @@ class TestSet:
         assert tm.set.smembers() == flat
 
     def test_symmetric_difference_update(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         tm.set.add(b'a')
         tm.set.add(b'b')
         other = {b'b', b'c'}
@@ -122,7 +130,7 @@ class TestSet:
         assert tm.set.smembers() == symdiff
 
     def test_intersection_update(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         tm.set.add(b'a')
         tm.set.add(b'b')
         tm.set.add(b'c')
@@ -134,7 +142,7 @@ class TestSet:
         assert tm.set.smembers() == intersection
 
     def test_difference_update(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         tm.set.add(b'a')
         tm.set.add(b'b')
         tm.set.add(b'c')
@@ -149,7 +157,7 @@ class TestSet:
 class TestList:
 
     def test_append(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         assert not tm.list
         lst = [b'a', b'b']
         for x in lst:
@@ -160,7 +168,7 @@ class TestList:
         assert tm.list.lrange(0, -1) == lst
 
     def test_extend(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         assert not tm.list
         lst = [b'a', b'b']
         tm.list.extend(lst)
@@ -170,14 +178,14 @@ class TestList:
         assert tm.list.lrange(0, -1) == [b'a', b'b']
 
     def test_clear(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         tm.list.append(b'<string>')
         tm.list.clear()
         assert not tm.list
         assert not tm.list.lrange(0, -1)
 
     def test_remove(self):
-        tm = testmodel()
+        tm = litetestmodel.new(id='<string>')
         lst = [b'a', b'b', b'a']
         tm.list.extend(lst)
         tm.list.remove(b'a')
@@ -229,11 +237,15 @@ class TestModel:
         assert new.proxy_set.smembers() == val
 
 
-class fulltestmodel(model.BaseModel):
-    redis = TEST_CONNECTION
-    id = fields.PrimaryKey()
-    unique = fields.String(unique=True)
-    required = fields.String(required=True)
-    proxy_set = fields.Set(standalone=True)
-    auto_set = fields.Set(auto=True)
-    plain_set = fields.Set()
+    def test_get(self):
+        ka = {'id': '<irrelevant>', 'unique': '<string>', 'required': ''}
+        new = fulltestmodel.new(**ka)
+        # By the primary key
+        reload = fulltestmodel(id=ka['id'])
+        for k in ka:
+            assert ka[k] == getattr(reload, k)
+
+        # By unique field
+        reload = fulltestmodel(unique=ka['unique'])
+        for k in ka:
+            assert ka[k] == getattr(reload, k)
