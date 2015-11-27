@@ -153,6 +153,12 @@ class TestSet:
         assert tm.set == {b'a'}
         assert tm.set.smembers() == {b'a'}
 
+    def test_set(self):
+        tm = litetestmodel.new(id='<string>')
+        new = {b'1', b'2', b'3'}
+        tm.set = new
+        assert tm.set == new
+        assert tm.set.smembers() == new
 
 class TestList:
 
@@ -192,6 +198,12 @@ class TestList:
         # Only the first occurrence was removed
         assert tm.list == lst[1:]
 
+    def test_set(self):
+        tm = litetestmodel.new(id='<string>')
+        new = [b'1', b'2', b'3']
+        tm.list = new
+        assert tm.list == new
+        assert tm.list.lrange(0, -1) == new
 
 
 class TestModel:
@@ -237,7 +249,7 @@ class TestModel:
         assert new.proxy_set.smembers() == val
 
 
-    def test_get(self):
+    def test_load(self):
         ka = {'id': '<irrelevant>', 'unique': '<string>', 'required': ''}
         new = fulltestmodel.new(**ka)
         # By the primary key

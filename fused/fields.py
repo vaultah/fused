@@ -65,6 +65,7 @@ class Field(BaseField):
     def to_redis(cls, value):
         return str(value).encode()
 
+
 # Proxy classes
 
 class callproxy:
@@ -103,10 +104,10 @@ class autotype(commandproxy):
 
 # Types
 
-class _Set(autotype, set):
+class _Set(set, autotype):
 
     def __init__(self, key, model):
-        super().__init__(key, model)
+        autotype.__init__(self, key, model)
         set.__init__(self, self.fetch())
 
     def fetch(self):
@@ -180,11 +181,11 @@ class _Set(autotype, set):
         return str([x for x in self])
 
 
-
-class _List(autotype, list):
+class _List(list, autotype):
 
     def __init__(self, key, model):
-        super().__init__(key, model)
+        # TODO:
+        autotype.__init__(self, key, model)
         list.__init__(self, self.fetch())
 
     def fetch(self):
@@ -196,7 +197,7 @@ class _List(autotype, list):
         # TODO: Is there a better way?
         # TODO: Should these be pipelined?
         connection.delete(key)
-        connection.lpush(key, *value)
+        connection.rpush(key, *value)
 
     def append(self, elem):
         return self.extend((elem,))
