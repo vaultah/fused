@@ -26,43 +26,46 @@ class Field(BaseField):
         self.standalone = standalone
         self.auto = auto
 
-    def __get__(self, this, type):
-        if this is None:
-            raise TypeError('Expected instance of {!r}, '
-                            'None found'.format(self.model_name))
-        key = this.qualified(self.name, pk=this.data[this._pk])
+    def __get__(self, model, model_type):
+        if model is None:
+            raise TypeError('Field.__get__ requires instance of '
+                            '{!r}'.format(self.model_name))
+        key = model.qualified(self.name, pk=model.data[model._pk])
         if not self.standalone:
-            # Coerce the value and return an instance of the corresponding
-            # Python type
-            return this.data[self.name]
+            # Return an instance of the corresponding Python type
+            return model.data[self.name]
 
         try:
-            return self._cache[self.name][this]
+            return self._cache[self.name][model]
         except KeyError:
-            # TODO: Optimize auto fields by looking at this.data?
-            rv = self.type(key, this) if self.auto else commandproxy(key, this)
-            self._cache[self.name][this] = rv
+            # TODO: Optimize auto fields by looking at model.data?
+            rv = self.type(key, model) if self.auto else commandproxy(key, model)
+            self._cache[self.name][model] = rv
             return rv
 
-    def __set__(self, this, value):
+    def __set__(self, model, value):
+        if model is None:
+            raise TypeError('Field.__set__ requires instance of '
+                            '{!r}'.format(self.model_name))
         if not self.standalone:
             raise TypeError('Field.__set__ only works for standalone fields')
-        if this is None:
-            raise TypeError('Expected instance of {!r}, '
-                            'None found'.format(self.model_name))
-        self.type.save(this.qualified(self.name, pk=this.data[this._pk]),
-                       this.__redis__, value)
+        self.type.save(model.qualified(self.name, pk=model.data[model._pk]),
+                       model.__redis__, value)
 
-    def __delete__(self, this):
+    def __delete__(self, model):
+        if model is None:
+            raise TypeError('Field.__delete__ requires instance of '
+                            '{!r}'.format(self.model_name))
         # TODO
-        pass
 
     @classmethod
     def from_redis(cls, value):
+        # redis-py returns bytes
         return value.decode()
 
     @classmethod
     def to_redis(cls, value):
+        # Create
         return str(value).encode()
 
 
@@ -118,7 +121,7 @@ class _Set(set, autotype):
         set.__init__(self, self.fetch())
 
     def fetch(self):
-        # Fetches the data immediately+
+        # Fetches the data immediately
         return self.model.__redis__.smembers(self.key)
 
     @classmethod
