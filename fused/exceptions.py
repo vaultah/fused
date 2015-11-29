@@ -5,9 +5,9 @@ class FusedError(Exception):
 class MissingFields(FusedError):
     pass
 
-    
+
 class NoPrimaryKey(FusedError):
-	pass
+    pass
 
 
 class DuplicateEntry(FusedError):
@@ -15,4 +15,4 @@ class DuplicateEntry(FusedError):
 
 
 class UnsupportedOperation(FusedError):
-	pass
+    pass

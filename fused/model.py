@@ -55,7 +55,6 @@ class MetaModel(ABCMeta):
             if cls._unique_fields:
                 cls._scripts['unique'] = cls.__redis__.register_script(
                                                         utils.SCRIPTS['unique'])
-
         return cls
                     
 
@@ -120,6 +119,24 @@ class Model(metaclass=MetaModel):
         return cls._field_sep.join(parts)
 
     @classmethod
+    def _write_unique(cls, data, pk):
+        # Must have the same order
+        keys, values, fields = [], [], []
+        for k, v in data.items():
+            keys.append(cls._unique_keys[k])
+            fields.append(k)
+            values.append(v)
+
+        res = cls._scripts['unique'](args=[pk, json.dumps(values)],
+                                     keys=keys)
+        # 0 for success
+        # 1 ... len(fields) is an error
+        #       (position of the first duplicate field from 'fields')
+        if res:
+            res -= 1
+            raise exceptions.DuplicateEntry(fields[res], values[res])
+
+    @classmethod
     def new(cls, **ka):
         if cls._required_fields.keys() - ka.keys():
             raise exceptions.MissingFields
@@ -130,21 +147,9 @@ class Model(metaclass=MetaModel):
         pk = ka[cls._pk]
         
         if cls._unique_fields:
-            # Must have the same order
-            keys, values, fields = [], [], []
-            for k in cls._unique_keys.keys() & ka.keys():
-                keys.append(cls._unique_keys[k])
-                fields.append(k)
-                values.append(ka[k])
-
-            res = cls._scripts['unique'](args=[pk, json.dumps(values)],
-                                         keys=keys)
-            # 0 for success
-            # 1 ... len(fields) is an error
-            #       (position of the first duplicate field from 'fields')
-            if res:
-                res -= 1
-                raise exceptions.DuplicateEntry(fields[res], values[res])
+            data = {k: ka[k] for k in 
+                     cls._unique_keys.keys() & ka.keys()}
+            cls._write_unique(data, pk)
 
         main_key = cls.qualified(pk=pk)
         
