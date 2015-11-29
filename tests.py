@@ -31,6 +31,21 @@ class fulltestmodel(model.Model):
     plain_set = fields.Set()
 
 
+class decodetestmodel(model.Model):
+    redis = redis.Redis(port=TEST_PORT, db=TEST_DB, decode_responses=True)
+    id = fields.PrimaryKey()
+    bytes = fields.Bytes()
+    str = fields.String()
+    plain_set = fields.Set()
+
+class nodecodetestmodel(model.Model):
+    redis = redis.Redis(port=TEST_PORT, db=TEST_DB, decode_responses=False)
+    id = fields.PrimaryKey()
+    bytes = fields.Bytes()
+    str = fields.String()
+    plain_set = fields.Set()
+
+
 class TestFields:
 
     def test_types(self):
@@ -273,4 +288,37 @@ class TestModel:
         # By unique field
         reload = fulltestmodel(unique=ka['unique'])
         for k in ka:
+            assert ka[k] == getattr(reload, k)
+
+
+
+class TestEncoding:
+
+    def test_decode_responses(self):
+        ka = {'id': '<irrelevant>', 'str': '¿Cómo está usted?',
+              'bytes': b'\x00 and some more chars',
+              'plain_set': {1, 2, 3, 'a', b'b', ('c',)}}
+        new = decodetestmodel.new(**ka)
+        for k in ka:
+            assert ka[k] == getattr(new, k)
+
+        reload = decodetestmodel(id=ka['id'])
+        # If decode_responses is True, it will raise
+        # AssertionError for 'bytes', this is by design
+        for k in ka.keys() - {'bytes'}:
+            assert ka[k] == getattr(reload, k)
+
+        assert ka['bytes'] != reload.bytes
+
+    def test_no_decode_responses(self):
+        ka = {'id': '<irrelevant>', 'str': '¿Cómo está usted?',
+              'bytes': b'\x00 and some more chars',
+              'plain_set': {1, 2, 3, 'a', b'b', ('c',)}}
+        new = nodecodetestmodel.new(**ka)
+        for k in ka:
+            assert ka[k] == getattr(new, k)
+
+        reload = nodecodetestmodel(id=ka['id'])
+        # decode_responses is False, 'bytes' won't be decoded
+        for k in ka.keys():
             assert ka[k] == getattr(reload, k)

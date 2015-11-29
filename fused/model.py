@@ -54,7 +54,12 @@ class MetaModel(ABCMeta):
             # We can register those now and change the connection later
             if cls._unique_fields:
                 cls._scripts['unique'] = cls.__redis__.register_script(
-                                                        utils.SCRIPTS['unique'])
+                                                utils.SCRIPTS['unique'])
+            # Get some information from the connection instance
+            # We need encoding and/or decode_responses to handle conversion
+            _params = cls.redis.connection_pool.connection_kwargs
+            cls._redis_encoding = _params['encoding']
+
         return cls
                     
 
@@ -79,21 +84,21 @@ class Model(metaclass=MetaModel):
             else:
                 self.data = self._get_unique(field, value)
 
-    def _get_by_pk(self, pk):
-        res = self.__redis__.hgetall(self.qualified(pk=pk))
+    @classmethod            
+    def _get_by_pk(cls, pk):
+        res = cls.__redis__.hgetall(cls.qualified(pk=pk))
         rv = {}
-        for field, value in self._plain.items():
-            rkey = fields.String.to_redis(field)
-            try:
-                rv[field] = value.from_redis(res[rkey])
-            except KeyError as e:
-                continue
+        for key, value in res.items():
+            decoded = fields.String.from_redis(key, cls._redis_encoding)
+            ob = cls._plain[decoded]
+            rv[decoded] = ob.from_redis(value, cls._redis_encoding)
         return rv
 
-    def _get_unique(self, field, value):
-        pk = self.__redis__.hget(self.qualified(field), value)
-        decoded = fields.PrimaryKey.from_redis(pk)
-        return self._get_by_pk(decoded)
+    @classmethod    
+    def _get_unique(cls, field, value):
+        pk = cls.__redis__.hget(cls.qualified(field), value)
+        decoded = fields.PrimaryKey.from_redis(pk, cls._redis_encoding)
+        return cls._get_by_pk(decoded)
 
     def __enter__(self):
         if not self.__context_depth__:
@@ -172,7 +177,8 @@ class Model(metaclass=MetaModel):
             except KeyError:
                 continue
             else:
-                save[field], data[field] = ob.to_redis(value), value
+                save[field] = ob.to_redis(value, cls._redis_encoding)
+                data[field] = value
 
         cls.__redis__.hmset(main_key, save)
         return cls(data)

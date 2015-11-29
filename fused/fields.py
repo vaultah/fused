@@ -59,15 +59,18 @@ class Field(BaseField):
         # TODO
 
     @classmethod
-    def from_redis(cls, value):
-        # redis-py returns bytes
-        return value.decode()
+    def from_redis(cls, value, encoding=None):
+        if isinstance(value, bytes) and encoding is not None:
+            return value.decode(encoding)
+        else:
+            return value
 
     @classmethod
-    def to_redis(cls, value):
-        # Create
-        return str(value).encode()
-
+    def to_redis(cls, value, encoding=None):
+        if encoding is not None:
+            return str(value).encode(encoding)
+        else:
+            return str(value)
 
 # Proxy classes
 
@@ -256,14 +259,21 @@ class _List(list, autotype):
         return self
 
 
+class PrimaryKey(Field):
+    pass
+
+
+class String(Field):
+    pass
+
 
 class List(Field):
     type = _List
 
     # Default to_redis is fine, default from_redis isn't
     @classmethod
-    def from_redis(cls, value):
-        return ast.literal_eval(value.decode())
+    def from_redis(cls, value, encoding=None):
+        return ast.literal_eval(String.from_redis(value, encoding))
 
 
 class Set(Field):
@@ -271,18 +281,35 @@ class Set(Field):
 
     # Default to_redis is fine, default from_redis isn't
     @classmethod
-    def from_redis(cls, value):
-        return ast.literal_eval(value.decode())
+    def from_redis(cls, value, encoding=None):
+        return ast.literal_eval(String.from_redis(value, encoding))
 
 
-class PrimaryKey(Field):
-    pass
+class Bytes(Field):
 
-class String(Field):
-    pass
+    @classmethod
+    def from_redis(cls, value, encoding=None):
+        # Return value unchanged
+        return value
+
+    @classmethod
+    def to_redis(cls, value, encoding=None):
+        # Return the value unchanged
+        return value
+
 
 class Integer(Field):
-    pass
+
+    @classmethod
+    def from_redis(value, encoding=None):
+        # Both str and bytes are supported
+        return int(value)
+
+    @classmethod
+    def to_redis(value, encoding=None):
+        # Convert it to str and then encode
+        return String.to_redis(str(value), encoding)
+
 
 
 __all__ = ['Field'] + [s.__name__ for s in Field.__subclasses__()]
