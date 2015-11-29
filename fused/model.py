@@ -20,7 +20,7 @@ class MetaModel(ABCMeta):
         cls._scripts = {}
 
         field_attrs = ((k, v) for k, v in attrs.items()
-                         if isinstance(v, fields.BaseField))
+                         if isinstance(v, fields.Field))
 
         for name, field in field_attrs:
             field.name, field.model_name = name, model_name
@@ -93,7 +93,8 @@ class Model(metaclass=MetaModel):
 
     def _get_unique(self, field, value):
         pk = self.__redis__.hget(self.qualified(field), value)
-        return self._get_by_pk(fields.PrimaryKey.from_redis(pk))
+        decoded = fields.PrimaryKey.from_redis(pk)
+        return self._get_by_pk(decoded)
 
     def __enter__(self):
         if not self.__context_depth__:

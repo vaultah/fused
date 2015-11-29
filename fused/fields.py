@@ -193,6 +193,8 @@ class _Set(set, autotype):
 
 class _List(list, autotype):
 
+    # TODO: Better support for list methods?
+
     def __init__(self, key, model):
         # TODO:
         autotype.__init__(self, key, model)
@@ -225,31 +227,25 @@ class _List(list, autotype):
         return super().remove(elem)
 
     def pop(self, index=-1):
-        elem = super().pop(index)
         if not index:
             self.lpop()
         elif index == -1:
             self.rpop()
         else:
-            pass
-        # TODO: *sigh*
-        return elem
+            raise exceptions.UnsupportedOperation
+        return super().pop(index)
 
     def insert(self):
-        # TODO: *sigh*
-        return super().insert()
+        raise exceptions.UnsupportedOperation
 
     def sort(self):
-        # TODO: I don't know how to do this D:
-        pass
+        raise exceptions.UnsupportedOperation
 
     def __delitem__(self, index):
-        # TODO: Slice delete
-        pass
+        raise exceptions.UnsupportedOperation
 
     def __setitem__(self, index):
-        # TODO: Slice assignment
-        pass
+        raise exceptions.UnsupportedOperation
 
     def __iadd__(self, other):
         self.extend(other)
@@ -287,3 +283,6 @@ class String(Field):
 
 class Integer(Field):
     pass
+
+
+__all__ = ['Field'] + [s.__name__ for s in Field.__subclasses__()]

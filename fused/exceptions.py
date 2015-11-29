@@ -7,9 +7,12 @@ class MissingFields(FusedError):
 
     
 class NoPrimaryKey(FusedError):
-    def __init__(self):
-        super().__init__('')
+	pass
 
 
 class DuplicateEntry(FusedError):
     pass
+
+
+class UnsupportedOperation(FusedError):
+	pass

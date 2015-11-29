@@ -198,6 +198,19 @@ class TestList:
         # Only the first occurrence was removed
         assert tm.list == lst[1:]
 
+    def test_pop(self):
+        tm = litetestmodel.new(id='<string>')
+        lst = [b'a', b'b', b'c', b'd']
+        tm.list.extend(lst)
+        tm.list.pop()
+        assert tm.list == lst[:-1]
+        assert tm.list.lrange(0, -1) == lst[:-1]
+        tm.list.pop(0)
+        assert tm.list == lst[1:-1]
+        assert tm.list.lrange(0, -1) == lst[1:-1]
+        with pytest.raises(exceptions.UnsupportedOperation):
+            tm.list.pop(1)
+
     def test_set(self):
         tm = litetestmodel.new(id='<string>')
         new = [b'1', b'2', b'3']
