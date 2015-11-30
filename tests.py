@@ -1,5 +1,5 @@
 import redis
-from fused import fields, model, exceptions
+from fused import fields, model, exceptions, proxies, auto
 import pytest
 
 
@@ -38,6 +38,7 @@ class decodetestmodel(model.Model):
     str = fields.String()
     plain_set = fields.Set()
 
+
 class nodecodetestmodel(model.Model):
     redis = redis.Redis(port=TEST_PORT, db=TEST_DB, decode_responses=False)
     id = fields.PrimaryKey()
@@ -51,11 +52,11 @@ class TestFields:
     def test_types(self):
         tm = litetestmodel.new(id='<string>')
         # Proxy fields
-        assert type(tm.standalone) is fields.commandproxy
-        assert type(tm.standalone.get) is fields.callproxy
+        assert type(tm.standalone) is proxies.commandproxy
+        assert type(tm.standalone.get) is proxies.callproxy
         # Auto fields
-        assert isinstance(tm.set, fields.autotype)
-        assert isinstance(tm.set, fields.autotype)
+        assert isinstance(tm.set, auto.autotype)
+        assert isinstance(tm.set, auto.autotype)
 
     @pytest.mark.parametrize('command,args,inverse,invargs', [
         ('HSET', (b'<string>', 1), 'HKEYS', ()),
@@ -263,8 +264,8 @@ class TestModel:
         ka = {'id': '<irrelevant>', 'unique': '<string>',
               'required': '', 'auto_set': val}
         new = fulltestmodel.new(**ka)
-        assert isinstance(new.auto_set, fields.autotype)
-        assert isinstance(new.auto_set, fields.commandproxy)
+        assert isinstance(new.auto_set, auto.autotype)
+        assert isinstance(new.auto_set, proxies.commandproxy)
         assert new.auto_set == val
         assert new.auto_set.smembers() == val
 
@@ -273,7 +274,7 @@ class TestModel:
         ka = {'id': '<irrelevant>', 'unique': '<string>',
               'required': '', 'proxy_set': val}
         new = fulltestmodel.new(**ka)
-        assert isinstance(new.proxy_set, fields.commandproxy)
+        assert isinstance(new.proxy_set, proxies.commandproxy)
         assert new.proxy_set.smembers() == val
 
 
