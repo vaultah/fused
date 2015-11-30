@@ -94,11 +94,22 @@ class Model(metaclass=MetaModel):
             rv[decoded] = ob.from_redis(value, cls._redis_encoding)
         return rv
 
-    @classmethod    
+    @classmethod
     def _get_unique(cls, field, value):
         pk = cls.__redis__.hget(cls.qualified(field), value)
         decoded = fields.PrimaryKey.from_redis(pk, cls._redis_encoding)
         return cls._get_by_pk(decoded)
+
+    def _update_plain(self, new_data):
+        # TODO: Unique
+        save = new_data.copy()
+        for k, v in save.items():
+            save[k] = self._plain_fields[k].to_redis(v, self._redis_encoding)
+        self.redis.hmset(self.qualified(pk=self.data[self._pk]), save)
+        self.data.update(new_data)
+
+    def _delete_plain(self, *fields):
+        self.redis.hdel(*fields)
 
     def __enter__(self):
         if not self.__context_depth__:

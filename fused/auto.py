@@ -168,7 +168,6 @@ class auto_list(list, autotype):
     # Default to_redis is fine, default from_redis isn't
     @classmethod
     def from_redis(cls, value, encoding=None):
-        print(value, encoding)
         return ast.literal_eval(auto_str.from_redis(value, encoding))
 
 

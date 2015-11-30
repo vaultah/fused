@@ -277,7 +277,6 @@ class TestModel:
         assert isinstance(new.proxy_set, proxies.commandproxy)
         assert new.proxy_set.smembers() == val
 
-
     def test_load(self):
         ka = {'id': '<irrelevant>', 'unique': '<string>', 'required': ''}
         new = fulltestmodel.new(**ka)
@@ -291,6 +290,13 @@ class TestModel:
         for k in ka:
             assert ka[k] == getattr(reload, k)
 
+    def test_instant_update(self):
+        ka = {'id': '<irrelevant>', 'unique': '<string>', 'required': ''}
+        new = fulltestmodel.new(**ka)
+        new.required = 'new value'
+        assert new.required == 'new value'
+        reload = fulltestmodel(id=ka['id'])
+        assert reload.required == 'new value'
 
 
 class TestEncoding:

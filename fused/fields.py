@@ -48,15 +48,19 @@ class Field:
             raise TypeError('Field.__set__ requires instance of '
                             '{!r}'.format(self.model_name))
         if not self.standalone:
-            raise TypeError('Field.__set__ only works for standalone fields')
-        self.type.save(model.qualified(self.name, pk=model.data[model._pk]),
-                       model.__redis__, value)
+            model._update_plain({self.name: value})
+        else:
+            self.type.save(model.qualified(self.name, pk=model.data[model._pk]),
+                           model.__redis__, value)
 
     def __delete__(self, model):
         if model is None:
             raise TypeError('Field.__delete__ requires instance of '
                             '{!r}'.format(self.model_name))
-        # TODO
+        if not self.standalone:
+            model._delete_plain(self.name)
+        else:
+            model._delete_standalone(self.name)
 
 
 class String(Field):
