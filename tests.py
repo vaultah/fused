@@ -290,13 +290,29 @@ class TestModel:
         for k in ka:
             assert ka[k] == getattr(reload, k)
 
-    def test_instant_update(self):
+    def test_instant_update_plain(self):
         ka = {'id': '<irrelevant>', 'unique': '<string>', 'required': ''}
         new = fulltestmodel.new(**ka)
         new.required = 'new value'
         assert new.required == 'new value'
         reload = fulltestmodel(id=ka['id'])
         assert reload.required == 'new value'
+
+    def test_instant_update_unique(self):
+        ka1 = {'id': '<irrelevant 1>', 'unique': '<string 1>', 'required': ''}
+        ka2 = {'id': '<irrelevant 2>', 'unique': '<string 2>', 'required': ''}
+        new = fulltestmodel.new(**ka1)
+        other = fulltestmodel.new(**ka2)
+        # Can we update it?
+        new.unique = '<string>'
+        assert new.unique == '<string>'
+        # Does reloading change anything?
+        reload = fulltestmodel(id=ka1['id'])
+        assert reload.unique == '<string>'
+
+        with pytest.raises(exceptions.DuplicateEntry):
+            new.unique = other.unique
+
 
 
 class TestEncoding:

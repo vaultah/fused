@@ -47,11 +47,13 @@ class Field:
         if model is None:
             raise TypeError('Field.__set__ requires instance of '
                             '{!r}'.format(self.model_name))
-        if not self.standalone:
-            model._update_plain({self.name: value})
-        else:
+        if self.unique:
+            model._update_unique({self.name: value})
+        elif self.standalone:
             self.type.save(model.qualified(self.name, pk=model.data[model._pk]),
                            model.__redis__, value)
+        else:
+            model._update_plain({self.name: value})
 
     def __delete__(self, model):
         if model is None:

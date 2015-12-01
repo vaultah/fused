@@ -101,12 +101,15 @@ class Model(metaclass=MetaModel):
         return cls._get_by_pk(decoded)
 
     def _update_plain(self, new_data):
-        # TODO: Unique
         save = new_data.copy()
         for k, v in save.items():
-            save[k] = self._plain_fields[k].to_redis(v, self._redis_encoding)
+            save[k] = self._plain[k].to_redis(v, self._redis_encoding)
         self.redis.hmset(self.qualified(pk=self.data[self._pk]), save)
         self.data.update(new_data)
+
+    def _update_unique(self, new_data):
+        self._write_unique(new_data, self.data[self._pk], self.redis)
+        self._update_plain(new_data)
 
     def _delete_plain(self, *fields):
         self.redis.hdel(*fields)
@@ -135,7 +138,7 @@ class Model(metaclass=MetaModel):
         return cls._field_sep.join(parts)
 
     @classmethod
-    def _write_unique(cls, data, pk):
+    def _write_unique(cls, data, pk, connection=None):
         # Must have the same order
         keys, values, fields = [], [], []
         for k, v in data.items():
@@ -143,8 +146,10 @@ class Model(metaclass=MetaModel):
             fields.append(k)
             values.append(v)
 
-        res = cls._scripts['unique'](args=[pk, json.dumps(values)],
-                                     keys=keys)
+        kwargs = {'args': [pk, json.dumps(values)], 'keys': keys}
+        if connection is not None:
+            kwargs['client'] = connection
+        res = cls._scripts['unique'](**kwargs)
         # 0 for success
         # 1 ... len(fields) is an error
         #       (position of the first duplicate field from 'fields')
@@ -172,13 +177,15 @@ class Model(metaclass=MetaModel):
         # Set the rest of fields
 
         # All standalone fields
-        for field, ob in cls._standalone.items():
-            try:
-                value = ka[field]
-            except KeyError:
-                continue
-            else:
-                ob.type.save(cls.qualified(field, pk=pk), cls.__redis__, value)
+        with cls.__redis__.pipeline() as pipe:
+            for field, ob in cls._standalone.items():
+                try:
+                    value = ka[field]
+                except KeyError:
+                    continue
+                else:
+                    ob.type.save(cls.qualified(field, pk=pk), pipe, value)
+            pipe.execute()
 
         # Unique and plain fields
         save, data = {cls._pk: pk}, {cls._pk: pk}
