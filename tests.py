@@ -19,6 +19,8 @@ class litetestmodel(model.Model):
     standalone = fields.Set(standalone=True)
     set = fields.Set(auto=True)
     list = fields.List(auto=True)
+    int = fields.Integer(auto=True)
+    str = fields.String(auto=True)
 
 
 class fulltestmodel(model.Model):
@@ -172,6 +174,7 @@ class TestSet:
     def test_set(self):
         tm = litetestmodel.new(id='<string>')
         new = {b'1', b'2', b'3'}
+        assert tm.set == set()
         tm.set = new
         assert tm.set == new
         assert tm.set.smembers() == new
@@ -230,9 +233,26 @@ class TestList:
     def test_set(self):
         tm = litetestmodel.new(id='<string>')
         new = [b'1', b'2', b'3']
+        assert tm.list == []
         tm.list = new
         assert tm.list == new
         assert tm.list.lrange(0, -1) == new
+
+
+class TestInteger:
+
+    def test_set(self):
+        tm = litetestmodel.new(id='<string>')
+        assert tm.int == 0
+        tm.int = 43
+        assert tm.int == 43
+
+    def test_incr(self):
+        tm = litetestmodel.new(id='<string>')
+        tm.int += 41
+        assert tm.int == 41
+        tm.int += 2
+        assert tm.int == 43
 
 
 class TestModel:
@@ -312,7 +332,6 @@ class TestModel:
 
         with pytest.raises(exceptions.DuplicateEntry):
             new.unique = other.unique
-
 
 
 class TestEncoding:

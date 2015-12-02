@@ -24,13 +24,16 @@ class autotype(proxies.commandproxy):
 
 class auto_set(set, autotype):
 
-    def __init__(self, key, model):
+    def __init__(self, key, model, data=None):
+        if data is None:
+            data = self.fetch(key, model.__redis__)
+        set.__init__(self, data)
         autotype.__init__(self, key, model)
-        set.__init__(self, self.fetch())
 
-    def fetch(self):
+    @classmethod
+    def fetch(cls, key, connection):
         # Fetches the data immediately
-        return self.model.__redis__.smembers(self.key)
+        return connection.smembers(key)
 
     @classmethod
     def save(cls, key, connection, value):
@@ -105,14 +108,16 @@ class auto_list(list, autotype):
 
     # TODO: Better support for list methods?
 
-    def __init__(self, key, model):
-        # TODO:
+    def __init__(self, key, model, data=None):
+        if data is None:
+            data = self.fetch(key, model.__redis__)
+        list.__init__(self, data)
         autotype.__init__(self, key, model)
-        list.__init__(self, self.fetch())
 
-    def fetch(self):
+    @classmethod
+    def fetch(cls, key, connection):
         # Fetches the data immediately
-        return self.model.__redis__.lrange(self.key, 0, -1)
+        return connection.lrange(key, 0, -1)
 
     @classmethod
     def save(cls, key, connection, value):
@@ -173,18 +178,21 @@ class auto_list(list, autotype):
 
 class auto_int(int, autotype):
 
-    def __init__(self, key, model):
+    def __new__(cls, key, model, data=None):
+        if data is None:
+            data = cls.fetch(key, model.__redis__)
+        return super().__new__(cls, data)
+        
+    def __init__(self, key, model, data=None):
         autotype.__init__(self, key, model)
-        int.__init__(self, self.fetch())
 
-    def fetch(self):
-        return int(self.model.__redis__.get(self.key))
+    @classmethod
+    def fetch(cls, key, connection):
+        return int(connection.get(key) or 0)
 
     @classmethod
     def save(cls, key, connection, value):
         return connection.set(key, value)
-
-    # TODO: __iadd__ for efficient INCR?
 
     @classmethod
     def from_redis(value, encoding=None):
@@ -196,16 +204,28 @@ class auto_int(int, autotype):
         # Convert it to str and then encode
         return auto_str.to_redis(str(value), encoding)
 
+    def __iadd__(self, other):
+        self.incr(other)
+        new = type(self)(self.key, self.model, self + other)
+        return new
+
 
 class auto_str(str, autotype):
 
-    def __init__(self, key, model):
-        autotype.__init__(self, key, model)
-        str.__init__(self, self.fetch())
+    def __new__(cls, key, model, data=None):
+        if data is None:
+            data = cls.fetch(key, model.__redis__)
+        return super().__new__(cls, data)
 
-    def fetch(self):
-        return self.model.__redis__.get(self.key)
+    def __init__(self, key, model, data=None):
+        autotype.__init__(self, key, model)
+
+    @classmethod
+    def fetch(cls, key, connection):
+        return connection.get(key)
 
     @classmethod
     def save(cls, key, connection, value):
         return connection.set(key, value)
+
+    # TODO: __iadd__

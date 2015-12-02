@@ -34,13 +34,14 @@ class Field:
 
         try:
             return self._cache[self.name][model]
-        except KeyError:
+        except KeyError as e:
             # TODO: Optimize auto fields by looking at model.data?
             if self.auto:
                 rv = self.type(key, model)
+                rv.field = self 
             else:
                 rv = proxies.commandproxy(key, model)
-            self._cache[self.name][model] = rv
+            self.update_instance(model, rv)
             return rv
 
     def __set__(self, model, value):
@@ -50,8 +51,15 @@ class Field:
         if self.unique:
             model._update_unique({self.name: value})
         elif self.standalone:
-            self.type.save(model.qualified(self.name, pk=model.data[model._pk]),
-                           model.__redis__, value)
+            if not isinstance(value, self.type):
+                # Update the DB
+                key = model.qualified(self.name, pk=model.data[model._pk])
+                self.type.save(key, model.__redis__, value)
+                new = self.type(key, model, value)
+            else:
+                # Simply update the cache
+                new = value
+            self.update_instance(model, new)
         else:
             model._update_plain({self.name: value})
 
@@ -63,6 +71,9 @@ class Field:
             model._delete_plain(self.name)
         else:
             model._delete_standalone(self.name)
+
+    def update_instance(self, model, new):
+        self._cache[self.name][model] = new
 
 
 class String(Field):
