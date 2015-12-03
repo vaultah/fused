@@ -150,17 +150,36 @@ class auto_list(list, autotype):
             raise exceptions.UnsupportedOperation
         return super().pop(index)
 
-    def insert(self):
-        raise exceptions.UnsupportedOperation
+    def insert(self, index, value):
+        if not index:
+            self.lpush(value)
+        elif index == len(self):
+            self.rpush(value)
+        else:
+            raise exceptions.UnsupportedOperation
+        return super().insert(index, value)
 
     def sort(self):
         raise exceptions.UnsupportedOperation
 
-    def __delitem__(self, index):
+    def reverse(self):
         raise exceptions.UnsupportedOperation
 
-    def __setitem__(self, index):
-        raise exceptions.UnsupportedOperation
+    def __delitem__(self, index):
+        return self.pop(index)
+
+    def __setitem__(self, index, value):
+        # TODO: Is there a better way?
+        # TODO: Should these be pipelined?
+        if not index:
+            self.lpop()
+            self.lpush(value)
+        elif index == -1:
+            self.rpop()
+            self.rpush(value)
+        else:
+            raise exceptions.UnsupportedOperation
+        return super().__setitem__(index, value)
 
     def __iadd__(self, other):
         self.extend(other)
@@ -227,5 +246,3 @@ class auto_str(str, autotype):
     @classmethod
     def save(cls, key, connection, value):
         return connection.set(key, value)
-
-    # TODO: __iadd__

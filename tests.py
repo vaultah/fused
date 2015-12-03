@@ -238,6 +238,29 @@ class TestList:
         assert tm.list == new
         assert tm.list.lrange(0, -1) == new
 
+    def test_insert(self):
+        tm = litetestmodel.new(id='<string>')
+        lst = [b'a', b'b', b'c', b'd']
+        tm.list.extend(lst)
+        tm.list.insert(0, b'e')
+        assert tm.list == [b'e'] + lst
+        assert tm.list.lrange(0, -1) == [b'e'] + lst
+        tm.list.pop(0)
+        tm.list.insert(len(tm.list), b'e')
+        assert tm.list == lst + [b'e']
+        assert tm.list.lrange(0, -1) == lst + [b'e']
+
+    def test_setitem(self):
+        tm = litetestmodel.new(id='<string>')
+        lst = [b'a', b'b', b'c', b'd']
+        tm.list.extend(lst)
+        tm.list[0] = b'e'
+        assert tm.list == [b'e'] + lst[1:]
+        assert tm.list.lrange(0, -1) == [b'e'] + lst[1:]
+        tm.list[-1] = b'e'
+        assert tm.list == [b'e'] + lst[1:-1] + [b'e']
+        assert tm.list.lrange(0, -1) == [b'e'] + lst[1:-1] + [b'e']
+
 
 class TestInteger:
 
