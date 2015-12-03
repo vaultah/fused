@@ -1,11 +1,20 @@
-from . import exceptions, utils
+from . import exceptions, utils, proxies, auto
+from abc import ABCMeta
 from collections import defaultdict
 from weakref import WeakKeyDictionary
 import ast
-from . import proxies, auto
 
 
-class Field:
+class MetaField(ABCMeta):
+    def __new__(mcs, field_name, bases, attrs):
+        if 'type' in attrs:
+            attrs.setdefault('to_redis', attrs['type'].to_redis)
+            attrs.setdefault('from_redis', attrs['type'].from_redis)
+        cls = super().__new__(mcs, field_name, bases, attrs)
+        return cls
+
+
+class Field(metaclass=MetaField):
 
     _cache = defaultdict(WeakKeyDictionary)
 
@@ -78,20 +87,14 @@ class Field:
 
 class String(Field):
     type = auto.auto_str
-    to_redis = type.to_redis
-    from_redis = type.from_redis
 
 
 class List(Field):
     type = auto.auto_list
-    to_redis = type.to_redis
-    from_redis = type.from_redis
 
 
 class Set(Field):
     type = auto.auto_set
-    to_redis = type.to_redis
-    from_redis = type.from_redis
 
 
 class Bytes(Field):
@@ -110,10 +113,7 @@ class Bytes(Field):
 
 
 class Integer(Field):
-
     type = auto.auto_int
-    to_redis = type.to_redis
-    from_redis = type.from_redis
 
 
 class PrimaryKey(String):

@@ -1,13 +1,13 @@
 from . import fields, utils, exceptions
-import redis
 from abc import ABCMeta
+import redis
 import json
 
 
 class MetaModel(ABCMeta):
 
-    def __new__(mcs, model_name, base, attrs):
-        cls = super().__new__(mcs, model_name, base, attrs)
+    def __new__(mcs, model_name, bases, attrs):
+        cls = super().__new__(mcs, model_name, bases, attrs)
         cls._pk = None
         cls._fields = {}
         # Pre-generated DB keys (they're constant)
