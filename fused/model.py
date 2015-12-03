@@ -69,20 +69,23 @@ class Model(metaclass=MetaModel):
 
     def __init__(self, data=None, **ka):
         self.__context_depth__ = 0
-        if data is not None:
-            self.data = data.copy()
-        else:
-            # Will only search by one pair
+        self.data = {}
+        # If the PK is present, we assume that the rest of fields
+        # are there as well
+        if data is None or self._pk not in data:
             if len(ka) > 1:
                 raise ValueError('You can only search by 1 unique field')
+            # Will only search by one pair
             field, value = ka.popitem()
             if field == self._pk:
-                self.data = self._get_by_pk(value)
+                self.data.update(self._get_by_pk(value))
             elif field not in self._unique_fields:  
                 raise TypeError('Attempted to get by non-unique'
                                 ' field {!r}'.format(field))
             else:
-                self.data = self._get_unique(field, value)
+                self.data.update(self._get_unique(field, value))
+
+        self.data.update(data or {})
 
     @classmethod            
     def _get_by_pk(cls, pk):

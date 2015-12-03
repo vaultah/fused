@@ -246,3 +246,5 @@ class auto_str(str, autotype):
     @classmethod
     def save(cls, key, connection, value):
         return connection.set(key, value)
+
+    # TODO: iadd
