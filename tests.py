@@ -49,6 +49,26 @@ class nodecodetestmodel(model.Model):
     plain_set = fields.Set()
 
 
+# Pair of models to test circular foreign relations
+
+class foreign_a(model.Model):
+    redis = TEST_CONNECTION
+    id = fields.PrimaryKey()
+    b_field = fields.Foreign('foreign_b')
+
+class foreign_b(model.Model):
+    redis = TEST_CONNECTION
+    id = fields.PrimaryKey()
+    a_field = fields.Foreign('foreign_a')
+
+
+# A model with not-so-foreign relation
+class self_foreign(model.Model):
+    redis = TEST_CONNECTION
+    id = fields.PrimaryKey()
+    field = fields.Foreign('self_foreign')
+
+
 class TestFields:
 
     def test_types(self):
@@ -355,6 +375,27 @@ class TestModel:
 
         with pytest.raises(exceptions.DuplicateEntry):
             new.unique = other.unique
+
+    def test_foreign(self):
+        fa = foreign_a.new(id='<irrelevant 1>', b_field='<irrelevant 2>')
+        fb = foreign_b.new(id='<irrelevant 2>', a_field='<irrelevant 1>')
+        # Load foreign_a
+        la = foreign_a(id='<irrelevant 1>')
+        assert isinstance(la.b_field, foreign_b)
+        assert isinstance(la.b_field.a_field, foreign_a)
+        assert la.b_field.a_field is la
+        assert la.b_field.a_field.b_field is la.b_field
+
+    def test_self_foreign(self):
+        sf1 = self_foreign.new(id='<irrelevant 1>', field='<irrelevant 2>')
+        sf2 = self_foreign.new(id='<irrelevant 2>', field='<irrelevant 1>')
+        # Load foreign_a
+        ls1 = self_foreign(id='<irrelevant 1>')
+        assert isinstance(ls1.field, self_foreign)
+        assert isinstance(ls1.field.field, self_foreign)
+        assert ls1.field.field is ls1
+        # Lel
+        assert ls1.field.field.field.field is ls1
 
 
 class TestEncoding:

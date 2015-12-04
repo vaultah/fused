@@ -18,7 +18,6 @@ class MetaField(ABCMeta):
 class Field(metaclass=MetaField):
 
     _cache = defaultdict(WeakKeyDictionary)
-    foreign = {}
 
     def __init__(self, *, unique=False, standalone=False, auto=False,
                           required=False):
@@ -123,7 +122,7 @@ class PrimaryKey(String):
     pass
 
 
-class Foreign(Field):
+class Foreign(String):
 
     def __init__(self, foreign, **ka):
         self.foreign = foreign

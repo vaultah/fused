@@ -95,8 +95,7 @@ class Model(metaclass=MetaModel):
 
     @classmethod            
     def _get_by_pk(cls, pk):
-        res = cls.__redis__.hgetall(cls.qualified(pk=pk))
-        rv = {}
+        res, rv = cls.__redis__.hgetall(cls.qualified(pk=pk)), {}
         for key, value in res.items():
             decoded = fields.String.from_redis(key, cls._redis_encoding)
             ob = cls._plain[decoded]
@@ -128,17 +127,18 @@ class Model(metaclass=MetaModel):
     def get_foreign(cls, name=None):
         if name is None:
             return list(cls._foreign)
-        return [k for k, v in cls._foreign.items() if v.model_name == name]
+        return [k for k, v in cls._foreign.items() if v.foreign == name]
 
     def _prepare(self):
         for field, ob in self._foreign.items():
-            gen = (t for t in type(self).__subclasses__()
-                            if t.__name__ == foreign)
+            # TODO: There should be a better way
+            gen = (t for t in Model.__subclasses__()
+                      if t.__name__ == ob.foreign)
             ft, fv = next(gen), self.data[field]
             if not isinstance(fv, ft):
                 ff = ft.get_foreign(type(self).__name__)
                 self.data[field] = ft(data=dict.fromkeys(ff, self),
-                                      **{ft._pk: fvalue})
+                                      **{ft._pk: fv})
 
     def __enter__(self):
         if not self.__context_depth__:
