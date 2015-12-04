@@ -6,6 +6,7 @@ import ast
 
 
 class MetaField(ABCMeta):
+
     def __new__(mcs, field_name, bases, attrs):
         if 'type' in attrs:
             attrs.setdefault('to_redis', attrs['type'].to_redis)
@@ -17,6 +18,7 @@ class MetaField(ABCMeta):
 class Field(metaclass=MetaField):
 
     _cache = defaultdict(WeakKeyDictionary)
+    foreign = {}
 
     def __init__(self, *, unique=False, standalone=False, auto=False,
                           required=False):
@@ -116,8 +118,16 @@ class Integer(Field):
     type = auto.auto_int
 
 
+# TODO: Add Integer (AI) field
 class PrimaryKey(String):
     pass
+
+
+class Foreign(Field):
+
+    def __init__(self, foreign, **ka):
+        self.foreign = foreign
+        super().__init__(**ka)
 
 
 __all__ = ['Field'] + [s.__name__ for s in Field.__subclasses__()]

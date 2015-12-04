@@ -10,6 +10,7 @@ class MetaModel(ABCMeta):
         cls = super().__new__(mcs, model_name, bases, attrs)
         cls._pk = None
         cls._fields = {}
+        cls._foreign = {}
         # Pre-generated DB keys (they're constant)
         cls._unique_keys = {}
         cls._unique_fields = {}
@@ -22,11 +23,15 @@ class MetaModel(ABCMeta):
         field_attrs = ((k, v) for k, v in attrs.items()
                          if isinstance(v, fields.Field))
 
+
         for name, field in field_attrs:
             field.name, field.model_name = name, model_name
             cls._fields[name] = field
             if isinstance(field, fields.PrimaryKey):
                 cls._pk = name
+
+            if isinstance(field, fields.Foreign):
+                cls._foreign[name] = field
 
             if field.unique:
                 cls._unique_fields[name] = field
@@ -86,6 +91,7 @@ class Model(metaclass=MetaModel):
                 self.data.update(self._get_unique(field, value))
 
         self.data.update(data or {})
+        self._prepare()
 
     @classmethod            
     def _get_by_pk(cls, pk):
@@ -114,8 +120,25 @@ class Model(metaclass=MetaModel):
         self._write_unique(new_data, self.data[self._pk], self.redis)
         self._update_plain(new_data)
 
+    # TODO
     def _delete_plain(self, *fields):
         self.redis.hdel(*fields)
+
+    @classmethod
+    def get_foreign(cls, name=None):
+        if name is None:
+            return list(cls._foreign)
+        return [k for k, v in cls._foreign.items() if v.model_name == name]
+
+    def _prepare(self):
+        for field, ob in self._foreign.items():
+            gen = (t for t in type(self).__subclasses__()
+                            if t.__name__ == foreign)
+            ft, fv = next(gen), self.data[field]
+            if not isinstance(fv, ft):
+                ff = ft.get_foreign(type(self).__name__)
+                self.data[field] = ft(data=dict.fromkeys(ff, self),
+                                      **{ft._pk: fvalue})
 
     def __enter__(self):
         if not self.__context_depth__:
