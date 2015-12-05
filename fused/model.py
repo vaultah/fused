@@ -131,6 +131,8 @@ class Model(metaclass=MetaModel):
 
     def _prepare(self):
         for field, ob in self._foreign.items():
+            if field not in self.data:
+                continue
             # TODO: There should be a better way
             gen = (t for t in Model.__subclasses__()
                       if t.__name__ == ob.foreign)

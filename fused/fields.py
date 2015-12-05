@@ -40,7 +40,7 @@ class Field(metaclass=MetaField):
         key = model.qualified(self.name, pk=model.data[model._pk])
         if not self.standalone:
             # Return an instance of the corresponding Python type
-            return model.data[self.name]
+            return model.data.get(self.name)
 
         try:
             return self._cache[self.name][model]
