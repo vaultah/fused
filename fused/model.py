@@ -229,16 +229,11 @@ class Model(metaclass=MetaModel):
         return ("<{0.__name__}/{0._primary_key}={1!r} instance"
                 " at {2:#x}>").format(type(self), self.primary_key, id(self))
 
-    # def __eq__(self, other):
-    #     if not isinstance(other, type(self)):
-    #         raise NotImplementedError('Can\'t compare instances of {!r} and '
-    #                                   '{!r}'.format(type(self), type(other)))
-    #     else:
-    #         # FIXME:
-    #         return self.data[self._pk] == other.data[other._pk]
+    def __eq__(self, other):
+        # TODO: Raise NotImplemented if ``type(self) is not type(other)``?
+        return type(self) is type(other) and \
+                    self.primary_key == other.primary_key
 
-    # def __hash__(self):
-    #     return hash((type(self), self.data[self._pk]))
-
-
-    __str__ = __repr__
+    def __hash__(self):
+        # Make it hashable (since I defined the __eq__ method)
+        return super().__hash__()
