@@ -25,9 +25,6 @@ class Field(metaclass=MetaField):
         if auto:
             standalone = True
 
-        if unique:
-            required = True
-
         self.unique = unique
         self.required = required
         self.standalone = standalone
@@ -73,14 +70,15 @@ class Field(metaclass=MetaField):
         else:
             model._update_plain({self.name: value})
 
-    def __delete__(self, model):
-        if model is None:
-            raise TypeError('Field.__delete__ requires instance of '
-                            '{!r}'.format(self.model_name))
-        if not self.standalone:
-            model._delete_plain(self.name)
-        else:
-            model._delete_standalone(self.name)
+    # TODO:
+    # def __delete__(self, model):
+    #     if model is None:
+    #         raise TypeError('Field.__delete__ requires instance of '
+    #                         '{!r}'.format(self.model_name))
+    #     if not self.standalone:
+    #         model._delete_plain(self.name)
+    #     else:
+    #         model._delete_standalone(self.name)
 
     def update_instance(self, model, new):
         self._cache[self.name][model] = new

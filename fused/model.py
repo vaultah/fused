@@ -119,9 +119,7 @@ class Model(metaclass=MetaModel):
         self._write_unique(new_data, self.data[self._pk], self.redis)
         self._update_plain(new_data)
 
-    # TODO
-    def _delete_plain(self, *fields):
-        self.redis.hdel(*fields)
+    # TODO: Delete
 
     @classmethod
     def get_foreign(cls, name=None):
