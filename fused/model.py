@@ -183,6 +183,7 @@ class Model(metaclass=MetaModel):
 
     @classmethod
     def new(cls, **ka):
+        # TODO: Check uniqueness of given PK
         if cls._required_fields.keys() - ka.keys():
             raise exceptions.MissingFields
             
