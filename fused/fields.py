@@ -49,7 +49,7 @@ class Field(metaclass=MetaField):
                 rv.field = self 
             else:
                 rv = proxies.commandproxy(key, model)
-            self.update_instance(model, rv)
+            self.set_instance(model, rv)
             return rv
 
     def __set__(self, model, value):
@@ -67,7 +67,7 @@ class Field(metaclass=MetaField):
             else:
                 # Simply update the cache
                 new = value
-            self.update_instance(model, new)
+            self.set_instance(model, new)
         else:
             model._update_plain({self.name: value})
 
@@ -81,7 +81,7 @@ class Field(metaclass=MetaField):
     #     else:
     #         model._delete_standalone(self.name)
 
-    def update_instance(self, model, new):
+    def set_instance(self, model, new):
         self._cache[self.name][model] = new
 
 
