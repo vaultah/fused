@@ -226,3 +226,7 @@ class Model(metaclass=MetaModel):
 
         cls.__redis__.hmset(main_key, save)
         return cls(data)
+
+    def __repr__(self):
+        return ("<{0.__name__}/{0._pk}={1!r} instance"
+                " at {2:#x}>").format(type(self), self.data[self._pk], id(self))
