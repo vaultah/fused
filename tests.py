@@ -397,6 +397,15 @@ class TestModel:
         # Lel
         assert ls1.field.field.field.field is ls1
 
+    def test_eq(self):
+        new = litetestmodel.new(id='<irrelevant>')
+        r1 = litetestmodel(id='<irrelevant>')
+        r2 = litetestmodel(id='<irrelevant>')
+        # with pytest.raises(NotImplementedError):
+        #     # Any type
+        #     r1 == None
+        # assert r1 == r2
+
 
 class TestEncoding:
 

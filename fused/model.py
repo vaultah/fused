@@ -28,7 +28,7 @@ class MetaModel(ABCMeta):
             field.name, field.model_name = name, model_name
             cls._fields[name] = field
             if isinstance(field, fields.PrimaryKey):
-                cls._pk = name
+                cls._primary_key = name
 
             if isinstance(field, fields.Foreign):
                 cls._foreign[name] = field
@@ -77,12 +77,12 @@ class Model(metaclass=MetaModel):
         self.data = {}
         # If the PK is present, we assume that the rest of fields
         # are there as well
-        if data is None or self._pk not in data:
+        if data is None or self._primary_key not in data:
             if len(ka) > 1:
                 raise ValueError('You can only search by 1 unique field')
             # Will only search by one pair
             field, value = ka.popitem()
-            if field == self._pk:
+            if field == self._primary_key:
                 self.data.update(self._get_by_pk(value))
             elif field not in self._unique_fields:  
                 raise TypeError('Attempted to get by non-unique'
@@ -92,6 +92,10 @@ class Model(metaclass=MetaModel):
 
         self.data.update(data or {})
         self._prepare()
+
+    @property
+    def primary_key(self):
+        return self.data[self._primary_key]
 
     @classmethod            
     def _get_by_pk(cls, pk):
@@ -112,11 +116,11 @@ class Model(metaclass=MetaModel):
         save = new_data.copy()
         for k, v in save.items():
             save[k] = self._plain[k].to_redis(v, self._redis_encoding)
-        self.redis.hmset(self.qualified(pk=self.data[self._pk]), save)
+        self.redis.hmset(self.qualified(pk=self.primary_key), save)
         self.data.update(new_data)
 
     def _update_unique(self, new_data):
-        self._write_unique(new_data, self.data[self._pk], self.redis)
+        self._write_unique(new_data, self.primary_key, self.redis)
         self._update_plain(new_data)
 
     # TODO: Delete
@@ -138,7 +142,7 @@ class Model(metaclass=MetaModel):
             if not isinstance(fv, ft):
                 ff = ft.get_foreign(type(self).__name__)
                 self.data[field] = ft(data=dict.fromkeys(ff, self),
-                                      **{ft._pk: fv})
+                                      **{ft._primary_key: fv})
 
     def __enter__(self):
         if not self.__context_depth__:
@@ -188,10 +192,10 @@ class Model(metaclass=MetaModel):
         if cls._required_fields.keys() - ka.keys():
             raise exceptions.MissingFields
             
-        if cls._pk not in ka:
+        if cls._primary_key not in ka:
             raise exceptions.NoPrimaryKey
 
-        pk = ka[cls._pk]
+        pk = ka[cls._primary_key]
         
         if cls._unique_fields:
             data = {k: ka[k] for k in 
@@ -214,7 +218,7 @@ class Model(metaclass=MetaModel):
             pipe.execute()
 
         # Unique and plain fields
-        save, data = {cls._pk: pk}, {cls._pk: pk}
+        save, data = {cls._primary_key: pk}, {cls._primary_key: pk}
         for field, ob in cls._plain.items():
             try:
                 value = ka[field]
@@ -228,5 +232,19 @@ class Model(metaclass=MetaModel):
         return cls(data)
 
     def __repr__(self):
-        return ("<{0.__name__}/{0._pk}={1!r} instance"
-                " at {2:#x}>").format(type(self), self.data[self._pk], id(self))
+        return ("<{0.__name__}/{0._primary_key}={1!r} instance"
+                " at {2:#x}>").format(type(self), self.primary_key, id(self))
+
+    # def __eq__(self, other):
+    #     if not isinstance(other, type(self)):
+    #         raise NotImplementedError('Can\'t compare instances of {!r} and '
+    #                                   '{!r}'.format(type(self), type(other)))
+    #     else:
+    #         # FIXME:
+    #         return self.data[self._pk] == other.data[other._pk]
+
+    # def __hash__(self):
+    #     return hash((type(self), self.data[self._pk]))
+
+
+    __str__ = __repr__

@@ -34,7 +34,6 @@ class Field(metaclass=MetaField):
         if model is None:
             raise TypeError('Field.__get__ requires instance of '
                             '{!r}'.format(self.model_name))
-        key = model.qualified(self.name, pk=model.data[model._pk])
         if not self.standalone:
             # Return an instance of the corresponding Python type
             return model.data.get(self.name)
@@ -42,7 +41,9 @@ class Field(metaclass=MetaField):
         try:
             return self._cache[self.name][model]
         except KeyError as e:
+            key = model.qualified(self.name, pk=model.primary_key)
             # TODO: Optimize auto fields by looking at model.data?
+            # No.
             if self.auto:
                 rv = self.type(key, model)
                 rv.field = self 
@@ -60,7 +61,7 @@ class Field(metaclass=MetaField):
         elif self.standalone:
             if not isinstance(value, self.type):
                 # Update the DB
-                key = model.qualified(self.name, pk=model.data[model._pk])
+                key = model.qualified(self.name, pk=model.primary_key)
                 self.type.save(key, model.__redis__, value)
                 new = self.type(key, model, value)
             else:
