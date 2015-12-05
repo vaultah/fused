@@ -7,22 +7,16 @@ import json
 class MetaModel(ABCMeta):
 
     def __new__(mcs, model_name, bases, attrs):
+        mappings = ('_fields', '_unique_keys', '_unique_fields',
+                    '_required_fields', '_plain_fields', '_standalone_proxy',
+                    '_standalone_auto', '_scripts', '_foreign')
+        for m in mappings:
+            attrs[m] = {}
         cls = super().__new__(mcs, model_name, bases, attrs)
         cls._pk = None
-        cls._fields = {}
-        cls._foreign = {}
-        # Pre-generated DB keys (they're constant)
-        cls._unique_keys = {}
-        cls._unique_fields = {}
-        cls._required_fields = {}
-        cls._plain_fields = {}
-        cls._standalone_proxy = {}
-        cls._standalone_auto = {}
-        cls._scripts = {}
 
         field_attrs = ((k, v) for k, v in attrs.items()
                          if isinstance(v, fields.Field))
-
 
         for name, field in field_attrs:
             field.name, field.model_name = name, model_name
