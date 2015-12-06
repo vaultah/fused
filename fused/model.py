@@ -250,9 +250,10 @@ class Model(metaclass=MetaModel):
                 " at {2:#x}>").format(type(self), self.primary_key, id(self))
 
     def __eq__(self, other):
-        # TODO: Raise NotImplemented if ``type(self) is not type(other)``?
-        return type(self) is type(other) and \
-                    self.primary_key == other.primary_key
+        if type(self) is not type(other):
+            raise NotImplementedError('Can\'t compare {!r} and {!r}'.format(
+                                        self, other))
+        return self.primary_key == other.primary_key
 
     def __hash__(self):
         # Make it hashable (since I defined the __eq__ method)

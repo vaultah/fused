@@ -322,6 +322,12 @@ class TestModel:
         with pytest.raises(exceptions.DuplicateEntry):
             fulltestmodel.new(**ka)
 
+    def test_new_pk_uniqueness(self):
+        new = litetestmodel.new(id='<string>')
+        with pytest.raises(exceptions.DuplicateEntry):
+            litetestmodel.new(id='<string>')
+
+
     def test_new_auto(self):
         val = {b'1', b'2', b'3'}
         ka = {'id': '<irrelevant>', 'unique': '<string>',
@@ -401,11 +407,10 @@ class TestModel:
         new = litetestmodel.new(id='<irrelevant>')
         r1 = litetestmodel(id='<irrelevant>')
         r2 = litetestmodel(id='<irrelevant>')
-        # with pytest.raises(NotImplementedError):
-        #     # Any type
-        #     r1 == None
-        # assert r1 == r2
-
+        with pytest.raises(NotImplementedError):
+            # Any type
+            r1 == None
+        assert r1 == r2
 
 class TestEncoding:
 
