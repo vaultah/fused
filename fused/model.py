@@ -251,8 +251,7 @@ class Model(metaclass=MetaModel):
 
     def __eq__(self, other):
         if type(self) is not type(other):
-            raise NotImplementedError('Can\'t compare {!r} and {!r}'.format(
-                                        self, other))
+            return NotImplemented
         return self.primary_key == other.primary_key
 
     def __hash__(self):

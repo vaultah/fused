@@ -407,9 +407,7 @@ class TestModel:
         new = litetestmodel.new(id='<irrelevant>')
         r1 = litetestmodel(id='<irrelevant>')
         r2 = litetestmodel(id='<irrelevant>')
-        with pytest.raises(NotImplementedError):
-            # Any type
-            r1 == None
+        assert r1 != 'something'
         assert r1 == r2
 
 class TestEncoding:
