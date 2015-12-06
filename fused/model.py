@@ -198,6 +198,8 @@ class Model(metaclass=MetaModel):
             cls._write_unique(data, pk)
 
         main_key = cls.qualified(pk=pk)
+
+        # TODO: Save to Model._records (SS) to allow pagination
         
         # Set the rest of fields
 
@@ -225,6 +227,11 @@ class Model(metaclass=MetaModel):
 
         cls.__redis__.hmset(main_key, save)
         return cls(data)
+
+    @classmethod
+    def get(cls):
+        # TODO
+        pass
 
     def __repr__(self):
         return ("<{0.__name__}/{0._primary_key}={1!r} instance"
