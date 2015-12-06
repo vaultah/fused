@@ -51,9 +51,12 @@ class MetaModel(ABCMeta):
             pass
         else:
             # We can register those now and change the connection later
+            scripts = ['primary_key']
             if cls._unique_fields:
-                cls._scripts['unique'] = cls.__redis__.register_script(
-                                                utils.SCRIPTS['unique'])
+                scripts.append('unique')
+            
+            for s in scripts:
+                cls._scripts[s] = cls.__redis__.register_script(utils.SCRIPTS[s])
             # Get some information from the connection instance
             # We need encoding and/or decode_responses to handle conversion
             _params = cls.redis.connection_pool.connection_kwargs
@@ -137,10 +140,13 @@ class Model(metaclass=MetaModel):
                 ff = ft.get_foreign(type(self).__name__)
                 self.data[field] = ft(data=dict.fromkeys(ff, self),
                                       **{ft._primary_key: fv})
+    @classmethod
+    def get_pipeline(cls):
+        return cls.__redis__.pipeline()
 
     def __enter__(self):
         if not self.__context_depth__:
-            pipe = self.__redis__.pipeline()
+            pipe = self.get_pipeline()
             self.redis = pipe.__enter__()
         self.__context_depth__ += 1
         return self
@@ -182,8 +188,14 @@ class Model(metaclass=MetaModel):
             raise exceptions.DuplicateEntry(fields[res], values[res])
 
     @classmethod
+    def _write_pk(cls, pk, score):
+        result = cls._scripts['primary_key'](args=[pk, score],
+                                             keys=[cls.qualified('_records')])
+        if not result:
+            raise exceptions.DuplicateEntry
+
+    @classmethod
     def new(cls, **ka):
-        # TODO: Check uniqueness of given PK
         if cls._required_fields.keys() - ka.keys():
             raise exceptions.MissingFields
             
@@ -191,20 +203,20 @@ class Model(metaclass=MetaModel):
             raise exceptions.NoPrimaryKey
 
         pk = ka[cls._primary_key]
+        main_key = cls.qualified(pk=pk)
         
+        # TODO: PK score
+        cls._write_pk(pk, 0)
+            
         if cls._unique_fields:
             data = {k: ka[k] for k in 
                      cls._unique_keys.keys() & ka.keys()}
             cls._write_unique(data, pk)
 
-        main_key = cls.qualified(pk=pk)
-
-        # TODO: Save to Model._records (SS) to allow pagination
-        
         # Set the rest of fields
 
         # All standalone fields
-        with cls.__redis__.pipeline() as pipe:
+        with cls.get_pipeline() as pipe:
             for field, ob in cls._standalone.items():
                 try:
                     value = ka[field]
