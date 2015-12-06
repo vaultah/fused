@@ -1,5 +1,2 @@
--- Write the primary key
-local ID, SCORE = ARGV[1], ARGV[2];
-local SSET = KEYS[1];
-
-return redis.call('ZADD', SSET, 'NX', SCORE, ID);
+-- redis-py < 3.0 doesn't support ZADD ... NX
+return redis.call('ZADD', KEYS[1], 'NX', ARGV[2], ARGV[1]);

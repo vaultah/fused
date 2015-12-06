@@ -1,5 +1,4 @@
-local VALUES = cjson.decode(ARGV[2]);
-local ID = ARGV[1];
+local ID, VALUES = ARGV[1], cjson.decode(ARGV[2]);
 
 for i=1, #KEYS do
     local res = redis.call('HEXISTS', KEYS[i], VALUES[i]);
