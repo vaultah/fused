@@ -2,6 +2,7 @@ from . import fields, utils, exceptions
 from abc import ABCMeta
 import redis
 import json
+import time
 
 
 class MetaModel(ABCMeta):
@@ -95,8 +96,12 @@ class Model(metaclass=MetaModel):
         return self.data[self._primary_key]
 
     @classmethod            
-    def _get_by_pk(cls, pk):
-        res, rv = cls.__redis__.hgetall(cls.qualified(pk=pk)), {}
+    def _get_by_pk(cls, pk, connection=None):
+        if connection is None:
+            res = cls.__redis__.hgetall(cls.qualified(pk=pk))
+        else:
+            res = connection.hgetall(cls.qualified(pk=pk))
+        rv = {}
         for key, value in res.items():
             decoded = fields.String.from_redis(key, cls._redis_encoding)
             ob = cls._plain[decoded]
@@ -104,8 +109,11 @@ class Model(metaclass=MetaModel):
         return rv
 
     @classmethod
-    def _get_unique(cls, field, value):
-        pk = cls.__redis__.hget(cls.qualified(field), value)
+    def _get_unique(cls, field, value, connection=None):
+        if connection is None:
+            pk = cls.__redis__.hget(cls.qualified(field), value)
+        else:
+            pk = connection.hget(cls.qualified(field), value)
         decoded = fields.PrimaryKey.from_redis(pk, cls._redis_encoding)
         return cls._get_by_pk(decoded)
 
@@ -188,7 +196,9 @@ class Model(metaclass=MetaModel):
             raise exceptions.DuplicateEntry(fields[res], values[res])
 
     @classmethod
-    def _write_pk(cls, pk, score):
+    def _write_pk(cls, pk, score=None):
+        if score is None:
+            score = time.time()
         result = cls._scripts['primary_key'](args=[pk, score],
                                              keys=[cls.qualified('_records')])
         if not result:
@@ -206,7 +216,7 @@ class Model(metaclass=MetaModel):
         main_key = cls.qualified(pk=pk)
         
         # TODO: PK score
-        cls._write_pk(pk, 0)
+        cls._write_pk(pk)
             
         if cls._unique_fields:
             data = {k: ka[k] for k in 
@@ -241,10 +251,31 @@ class Model(metaclass=MetaModel):
         return cls(data)
 
     @classmethod
-    def get(cls):
-        # TODO
-        pass
+    def get(cls, pks=None, start=None, stop=None, offset=None, limit=None, **ka):
+        # TODO: Checking
 
+        key = cls.qualified('_records')
+
+        if any(x is not None for x in (start, stop, offset, limit)):
+            if start is None:
+                start = '-inf'
+
+            if stop is None:
+                stop = '+inf'
+
+            pks = self.__redis__.zrevrangebyscore(key, start, stop,
+                                                  start=offset, num=limit)
+
+        if pks is not None:
+            it = ({cls._primary_key: pk} for pk in pks)
+        else:
+            field, values = ka.popitem()
+            it = ({field: v} for v in values)
+
+        with cls.get_pipeline() as pipe:
+            # TODO: Use get_by_pk and get_unique
+            pass
+            
     @classmethod
     def count(cls):
         return cls.__redis__.zcard(cls.qualified('_records'))
