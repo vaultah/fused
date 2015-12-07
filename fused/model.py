@@ -95,18 +95,22 @@ class Model(metaclass=MetaModel):
     def primary_key(self):
         return self.data[self._primary_key]
 
+    @classmethod
+    def _process_raw(cls, result):
+        rv = {}
+        for key, value in result.items():
+            decoded = fields.String.from_redis(key, cls._redis_encoding)
+            ob = cls._plain[decoded]
+            rv[decoded] = ob.from_redis(value, cls._redis_encoding)
+        return rv
+        
     @classmethod            
     def _get_by_pk(cls, pk, connection=None):
         if connection is None:
             res = cls.__redis__.hgetall(cls.qualified(pk=pk))
         else:
             res = connection.hgetall(cls.qualified(pk=pk))
-        rv = {}
-        for key, value in res.items():
-            decoded = fields.String.from_redis(key, cls._redis_encoding)
-            ob = cls._plain[decoded]
-            rv[decoded] = ob.from_redis(value, cls._redis_encoding)
-        return rv
+        return res
 
     @classmethod
     def _get_unique(cls, field, value, connection=None):
