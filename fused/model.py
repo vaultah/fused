@@ -1,8 +1,10 @@
-from . import fields, utils, exceptions
-from abc import ABCMeta
 import redis
 import json
 import time
+from abc import ABCMeta
+from collections.abc import Mapping
+
+from . import fields, utils, exceptions
 
 
 class MetaModel(ABCMeta):
@@ -70,7 +72,7 @@ class Model(metaclass=MetaModel):
 
     _field_sep = ':'
 
-    def __init__(self, data=None, **ka):
+    def __init__(self, *, data=None, **ka):
         self.__context_depth__ = 0
         self.data = {}
         # If the PK is present, we assume that the rest of fields
@@ -81,64 +83,46 @@ class Model(metaclass=MetaModel):
             # Will only search by one pair
             field, value = ka.popitem()
             if field == self._primary_key:
-                self.data.update(self._get_by_pk(value))
+                raw = self._get_raw_by_pk(value)
             elif field not in self._unique_fields:  
                 raise TypeError('Attempted to get by non-unique'
                                 ' field {!r}'.format(field))
             else:
-                self.data.update(self._get_unique(field, value))
+                raw = self._get_by_unique(field, value)
+
+            self.data.update(self._process_raw(raw))
 
         self.data.update(data or {})
         self._prepare()
-
-    @property
-    def primary_key(self):
-        return self.data[self._primary_key]
+        
+    @classmethod
+    def _get_pk_by_unique(cls, field, value, connection=None):
+        # Exactly one action to make it usable with pipes
+        return (connection or cls.__redis__).hget(cls.qualified(field), value)
 
     @classmethod
-    def _process_raw(cls, result):
+    def _get_raw_by_pk(cls, pk, connection=None):
+        # Exactly one action to make it usable with pipes
+        return (connection or cls.__redis__).hgetall(cls.qualified(pk=pk))
+
+    @classmethod
+    def _get_by_pk(cls, pk):
+        return cls._process_raw(cls._get_raw_by_pk(pk))
+
+    @classmethod
+    def _get_by_unique(cls, field, value):
+        pk = cls._get_pk_by_unique(field, value)
+        decoded = fields.PrimaryKey.from_redis(pk, cls._redis_encoding)
+        return cls._get_by_pk(decoded)
+
+    @classmethod
+    def _process_raw(cls, raw):
         rv = {}
-        for key, value in result.items():
+        for key, value in raw.items():
             decoded = fields.String.from_redis(key, cls._redis_encoding)
             ob = cls._plain[decoded]
             rv[decoded] = ob.from_redis(value, cls._redis_encoding)
         return rv
-        
-    @classmethod            
-    def _get_by_pk(cls, pk, connection=None):
-        if connection is None:
-            res = cls.__redis__.hgetall(cls.qualified(pk=pk))
-        else:
-            res = connection.hgetall(cls.qualified(pk=pk))
-        return res
-
-    @classmethod
-    def _get_unique(cls, field, value, connection=None):
-        if connection is None:
-            pk = cls.__redis__.hget(cls.qualified(field), value)
-        else:
-            pk = connection.hget(cls.qualified(field), value)
-        decoded = fields.PrimaryKey.from_redis(pk, cls._redis_encoding)
-        return cls._get_by_pk(decoded)
-
-    def _update_plain(self, new_data):
-        save = new_data.copy()
-        for k, v in save.items():
-            save[k] = self._plain[k].to_redis(v, self._redis_encoding)
-        self.redis.hmset(self.qualified(pk=self.primary_key), save)
-        self.data.update(new_data)
-
-    def _update_unique(self, new_data):
-        self._write_unique(new_data, self.primary_key, self.redis)
-        self._update_plain(new_data)
-
-    # TODO: Delete
-
-    @classmethod
-    def get_foreign(cls, name=None):
-        if name is None:
-            return list(cls._foreign)
-        return [k for k, v in cls._foreign.items() if v.foreign == name]
 
     def _prepare(self):
         for field, ob in self._foreign.items():
@@ -152,24 +136,27 @@ class Model(metaclass=MetaModel):
                 ff = ft.get_foreign(type(self).__name__)
                 self.data[field] = ft(data=dict.fromkeys(ff, self),
                                       **{ft._primary_key: fv})
+
+    @classmethod
+    def get_foreign(cls, name=None):
+        if name is None:
+            return list(cls._foreign)
+        return [k for k, v in cls._foreign.items() if v.foreign == name]
+
     @classmethod
     def get_pipeline(cls):
         return cls.__redis__.pipeline()
 
-    def __enter__(self):
-        if not self.__context_depth__:
-            pipe = self.get_pipeline()
-            self.redis = pipe.__enter__()
-        self.__context_depth__ += 1
-        return self
+    @classmethod
+    def count(cls):
+        return cls.__redis__.zcard(cls.qualified('_records'))
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        # Must be set at the beginning of this method
-        self.__context_depth__ -= 1
-        if not self.__context_depth__:
-            self.redis.execute()
-            self.redis.__exit__(exc_type, exc_value, traceback)
-            self.redis = self.__redis__
+    @property
+    def primary_key(self):
+        return self.data[self._primary_key]
+
+    def good(self):
+        return bool(self.data)
 
     @classmethod
     def qualified(cls, *args, pk=None):
@@ -178,6 +165,16 @@ class Model(metaclass=MetaModel):
             parts.append(pk)
         parts.extend(args)
         return cls._field_sep.join(parts)
+        
+    @classmethod
+    def instances(cls, stream):
+        seq = tuple(stream)
+        if isinstance(seq[0], Mapping):
+            yield from (cls(data=x) for x in seq)
+        elif isinstance(seq[0], cls):
+            yield from seq
+        else: # ObjectIds or public ids
+            yield from (cls(**{cls._primary_key: x}) for x in seq)
 
     @classmethod
     def _write_unique(cls, data, pk, connection=None):
@@ -207,6 +204,17 @@ class Model(metaclass=MetaModel):
                                              keys=[cls.qualified('_records')])
         if not result:
             raise exceptions.DuplicateEntry
+
+    def _update_plain(self, new_data):
+        save = new_data.copy()
+        for k, v in save.items():
+            save[k] = self._plain[k].to_redis(v, self._redis_encoding)
+        self.redis.hmset(self.qualified(pk=self.primary_key), save)
+        self.data.update(new_data)
+
+    def _update_unique(self, new_data):
+        self._write_unique(new_data, self.primary_key, self.redis)
+        self._update_plain(new_data)
 
     @classmethod
     def new(cls, **ka):
@@ -252,7 +260,7 @@ class Model(metaclass=MetaModel):
                 data[field] = value
 
         cls.__redis__.hmset(main_key, save)
-        return cls(data)
+        return cls(data=data)
 
     @classmethod
     def get(cls, pks=None, start=None, stop=None, offset=None, limit=None, **ka):
@@ -279,10 +287,21 @@ class Model(metaclass=MetaModel):
         with cls.get_pipeline() as pipe:
             # TODO: Use get_by_pk and get_unique
             pass
-            
-    @classmethod
-    def count(cls):
-        return cls.__redis__.zcard(cls.qualified('_records'))
+        
+    def __enter__(self):
+        if not self.__context_depth__:
+            pipe = self.get_pipeline()
+            self.redis = pipe.__enter__()
+        self.__context_depth__ += 1
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # Must be set at the beginning of this method
+        self.__context_depth__ -= 1
+        if not self.__context_depth__:
+            self.redis.execute()
+            self.redis.__exit__(exc_type, exc_value, traceback)
+            self.redis = self.__redis__
 
     def __repr__(self):
         return ("<{0.__name__}/{0._primary_key}={1!r} instance"
@@ -292,7 +311,8 @@ class Model(metaclass=MetaModel):
         if type(self) is not type(other):
             return NotImplemented
         return self.primary_key == other.primary_key
-
     def __hash__(self):
-        # Make it hashable (since I defined the __eq__ method)
         return super().__hash__()
+    # def __hash__(self):
+    #     # Make it hashable (since I defined the __eq__ method)
+    #     return hash((type(self), self.primary_key))
