@@ -3,7 +3,7 @@ import json
 import time
 from abc import ABCMeta
 from collections.abc import Mapping
-
+from itertools import chain
 from . import fields, utils, exceptions
 
 
@@ -98,12 +98,16 @@ class Model(metaclass=MetaModel):
     @classmethod
     def _get_pk_by_unique(cls, field, value, connection=None):
         # Exactly one action to make it usable with pipes
-        return (connection or cls.__redis__).hget(cls.qualified(field), value)
+        # Lol. Pipeline may be False in boolean context.
+        conn = connection if connection is not None else cls.__redis__
+        return conn.hget(cls.qualified(field), value)
 
     @classmethod
     def _get_raw_by_pk(cls, pk, connection=None):
         # Exactly one action to make it usable with pipes
-        return (connection or cls.__redis__).hgetall(cls.qualified(pk=pk))
+        # Lol. Pipeline may be False in boolean context.
+        conn = connection if connection is not None else cls.__redis__
+        return conn.hgetall(cls.qualified(pk=pk))
 
     @classmethod
     def _get_by_pk(cls, pk):
@@ -167,14 +171,15 @@ class Model(metaclass=MetaModel):
         return cls._field_sep.join(parts)
         
     @classmethod
-    def instances(cls, stream):
-        seq = tuple(stream)
-        if isinstance(seq[0], Mapping):
-            yield from (cls(data=x) for x in seq)
-        elif isinstance(seq[0], cls):
-            yield from seq
-        else: # ObjectIds or public ids
-            yield from (cls(**{cls._primary_key: x}) for x in seq)
+    def instances(cls, it):
+        it = iter(it)
+        first = next(it)
+        if isinstance(first, Mapping):
+            yield from (cls(data=x) for x in chain((first,), it))
+        elif isinstance(first, cls):
+            yield from chain((first,), it)
+        else:
+            yield from (cls(**{cls._primary_key: x}) for x in chain((first,), it))
 
     @classmethod
     def _write_unique(cls, data, pk, connection=None):
@@ -264,29 +269,39 @@ class Model(metaclass=MetaModel):
 
     @classmethod
     def get(cls, pks=None, start=None, stop=None, offset=None, limit=None, **ka):
-        # TODO: Checking
-
+        z = any(x is not None for x in (start, stop, offset, limit))
+        if sum((z, pks is not None, len(ka) == 1)) != 1:
+            raise ValueError
+            
         key = cls.qualified('_records')
 
-        if any(x is not None for x in (start, stop, offset, limit)):
+        if z:
             if start is None:
                 start = '-inf'
 
             if stop is None:
                 stop = '+inf'
 
-            pks = self.__redis__.zrevrangebyscore(key, start, stop,
-                                                  start=offset, num=limit)
+            pks = (fields.PrimaryKey.from_redis(x, cls._redis_encoding)
+                   for x in self.__redis__.zrevrangebyscore(
+                                key, start, stop, start=offset, num=limit))
 
         if pks is not None:
-            it = ({cls._primary_key: pk} for pk in pks)
+            it = pks
         else:
             field, values = ka.popitem()
-            it = ({field: v} for v in values)
+            with cls.get_pipeline() as pipe:
+                for v in values:
+                    cls._get_pk_by_unique(field, v, pipe)
+                it = (fields.PrimaryKey.from_redis(x, cls._redis_encoding)
+                      for x in pipe.execute())
 
         with cls.get_pipeline() as pipe:
-            # TODO: Use get_by_pk and get_unique
-            pass
+            for x in it:
+                cls._get_raw_by_pk(x, pipe)
+            raw = pipe.execute()
+
+        yield from cls.instances(cls._process_raw(r) for r in raw)
         
     def __enter__(self):
         if not self.__context_depth__:
@@ -311,8 +326,10 @@ class Model(metaclass=MetaModel):
         if type(self) is not type(other):
             return NotImplemented
         return self.primary_key == other.primary_key
+
     def __hash__(self):
         return super().__hash__()
+
     # def __hash__(self):
     #     # Make it hashable (since I defined the __eq__ method)
     #     return hash((type(self), self.primary_key))

@@ -417,6 +417,13 @@ class TestModel:
         new = litetestmodel.new(id='<irrelevant 2>')
         assert litetestmodel.count() == 2
 
+    def test_get_by_pks(self):
+        instances = [litetestmodel.new(id='<primary key {}>'.format(i))
+                        for i in range(10)]
+        lst = list(litetestmodel.get(x.primary_key for x in instances))
+        assert all(x == y for x, y in zip(instances, lst))
+        
+        
 class TestEncoding:
 
     def test_decode_responses(self):
