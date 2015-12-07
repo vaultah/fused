@@ -77,12 +77,12 @@ class Model(metaclass=MetaModel):
         self.data = {}
         # If the PK is present, we assume that the rest of fields
         # are there as well
-        if data is None or self._primary_key not in data:
+        if data is None or self._primary_key not in data and not 'primary_key' in data:
             if len(ka) > 1:
                 raise ValueError('You can only search by 1 unique field')
             # Will only search by one pair
             field, value = ka.popitem()
-            if field == self._primary_key:
+            if field in {self._primary_key, 'primary_key'}:
                 raw = self._get_raw_by_pk(value)
             elif field not in self._unique_fields:  
                 raise TypeError('Attempted to get by non-unique'
@@ -179,7 +179,7 @@ class Model(metaclass=MetaModel):
         elif isinstance(first, cls):
             yield from chain((first,), it)
         else:
-            yield from (cls(**{cls._primary_key: x}) for x in chain((first,), it))
+            yield from (cls(primary_key=x) for x in chain((first,), it))
 
     @classmethod
     def _write_unique(cls, data, pk, connection=None):
