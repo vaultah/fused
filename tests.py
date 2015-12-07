@@ -421,9 +421,23 @@ class TestModel:
         instances = [litetestmodel.new(id='<primary key {}>'.format(i))
                         for i in range(10)]
         lst = list(litetestmodel.get(x.primary_key for x in instances))
+        assert len(lst) == 10
         assert all(x == y for x, y in zip(instances, lst))
         
-        
+    def test_get_by_unique(self):
+        instances = []
+        for i in range(10):
+            new = fulltestmodel.new(id='<primary key {}>'.format(i),
+                                    required='', unique=str(i))
+            instances.append(new)
+        lst = list(fulltestmodel.get(unique=[str(x) for x in range(10)]))
+        assert len(lst) == 10
+        assert all(x == y for x, y in zip(instances, lst))
+
+    def test_get_zrevrange(self):
+        pass
+
+
 class TestEncoding:
 
     def test_decode_responses(self):

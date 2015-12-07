@@ -230,10 +230,15 @@ class Model(metaclass=MetaModel):
             raise exceptions.NoPrimaryKey
 
         pk = ka[cls._primary_key]
+
+        if isinstance(pk, tuple):
+            pk, score = pk
+        else:
+            score = None
+
         main_key = cls.qualified(pk=pk)
         
-        # TODO: PK score
-        cls._write_pk(pk)
+        cls._write_pk(pk, score)
             
         if cls._unique_fields:
             data = {k: ka[k] for k in 
