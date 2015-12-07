@@ -138,8 +138,7 @@ class Model(metaclass=MetaModel):
             ft, fv = next(gen), self.data[field]
             if not isinstance(fv, ft):
                 ff = ft.get_foreign(type(self).__name__)
-                self.data[field] = ft(data=dict.fromkeys(ff, self),
-                                      **{ft._primary_key: fv})
+                self.data[field] = ft(data=dict.fromkeys(ff, self), primary_key=fv)
 
     @classmethod
     def get_foreign(cls, name=None):
@@ -230,16 +229,16 @@ class Model(metaclass=MetaModel):
             raise exceptions.NoPrimaryKey
 
         pk = ka[cls._primary_key]
-
         if isinstance(pk, tuple):
             pk, score = pk
+            ka[cls._primary_key] = pk
         else:
             score = None
 
         main_key = cls.qualified(pk=pk)
         
         cls._write_pk(pk, score)
-            
+
         if cls._unique_fields:
             data = {k: ka[k] for k in 
                      cls._unique_keys.keys() & ka.keys()}
@@ -287,9 +286,15 @@ class Model(metaclass=MetaModel):
             if stop is None:
                 stop = '+inf'
 
-            pks = (fields.PrimaryKey.from_redis(x, cls._redis_encoding)
-                   for x in self.__redis__.zrevrangebyscore(
-                                key, start, stop, start=offset, num=limit))
+            if offset is None:
+                offset = 0
+
+            if limit is None:
+                limit = 100
+
+            pks = [fields.PrimaryKey.from_redis(x, cls._redis_encoding)
+                   for x in cls.__redis__.zrangebyscore(
+                                key, start, stop, start=offset, num=limit)]
 
         if pks is not None:
             it = pks

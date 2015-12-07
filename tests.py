@@ -434,8 +434,27 @@ class TestModel:
         assert len(lst) == 10
         assert all(x == y for x, y in zip(instances, lst))
 
-    def test_get_zrevrange(self):
-        pass
+    def test_get_zrange(self):
+        instances = []
+        instances.append(litetestmodel.new(id=('1', 0)))
+        instances.append(litetestmodel.new(id=('2', 2)))
+        instances.append(litetestmodel.new(id=('3', 50)))
+        instances.append(litetestmodel.new(id=('4', '+inf')))
+        lst = list(litetestmodel.get(limit=2))
+        assert len(lst) == 2
+        assert lst == instances[:2]
+        lst = list(litetestmodel.get(offset=2, limit=2))
+        assert len(lst) == 2
+        assert lst == instances[2:4]
+        lst = list(litetestmodel.get(start=2, stop=40))
+        assert len(lst) == 1
+        assert lst == instances[1:2]
+        lst = list(litetestmodel.get(start=2, stop=50))
+        assert len(lst) == 2
+        assert lst == instances[1:3]
+        lst = list(litetestmodel.get(offset=1, start=2, stop=50))
+        assert len(lst) == 1
+        assert lst == instances[2:3]
 
 
 class TestEncoding:
