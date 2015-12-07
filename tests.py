@@ -410,6 +410,13 @@ class TestModel:
         assert r1 != 'something'
         assert r1 == r2
 
+    def test_count(self):
+        assert litetestmodel.count() == 0
+        new = litetestmodel.new(id='<irrelevant 1>')
+        assert litetestmodel.count() == 1
+        new = litetestmodel.new(id='<irrelevant 2>')
+        assert litetestmodel.count() == 2
+
 class TestEncoding:
 
     def test_decode_responses(self):

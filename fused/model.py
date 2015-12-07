@@ -245,6 +245,10 @@ class Model(metaclass=MetaModel):
         # TODO
         pass
 
+    @classmethod
+    def count(cls):
+        return cls.__redis__.zcard(cls.qualified('_records'))
+
     def __repr__(self):
         return ("<{0.__name__}/{0._primary_key}={1!r} instance"
                 " at {2:#x}>").format(type(self), self.primary_key, id(self))
