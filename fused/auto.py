@@ -43,61 +43,70 @@ class auto_set(set, autotype):
     def save(cls, key, connection, value):
         connection.sadd(key, *value)
 
-    def add(self, elem):
-        self.sadd(elem)
-        return super().add(elem)
+    def sadd(self, *members):
+        super().update(members)
+        super().__getattr__('sadd')(*members)
 
-    def clear(self):
-        self.delete(self.key, self.model.redis)
-        return super().clear()
+    def spop(self, number=1):
+        # number is supported in later versions http://redis.io/commands/spop
+        rem = [super().pop() for _ in range(number)]
+        super().__getattr__('srem')(*rem)
 
-    def pop(self):
-        elem = super().pop()
-        self.srem(elem)
-        return elem
+    # def add(self, elem):
+    #     self.sadd(elem)
+    #     return super().add(elem)
 
-    def remove(self, elem):
-        self.srem(elem)
-        return super().remove(elem)
+    # def clear(self):
+    #     self.delete(self.key, self.model.redis)
+    #     return super().clear()
 
-    def discard(self, elem):
-        self.srem(elem)
-        return super().discard(elem)
+    # def pop(self):
+    #     elem = super().pop()
+    #     self.srem(elem)
+    #     return elem
 
-    def update(self, *other):
-        union = set.union(*other)
-        self.sadd(*union)
-        return super().update(union)
+    # def remove(self, elem):
+    #     self.srem(elem)
+    #     return super().remove(elem)
 
-    def symmetric_difference_update(self, other):
-        # (self ∪ other) ∖ (self ∩ other)
-        # TODO: Should these be pipelined?
-        self.sadd(*other)
-        self.srem(*self.intersection(other))
-        return super().symmetric_difference_update(other)
+    # def discard(self, elem):
+    #     self.srem(elem)
+    #     return super().discard(elem)
 
-    def intersection_update(self, *other):
-        # self \ (self \ (self.intersection(*other)))
-        diff = self - self.intersection(*other)
-        self.srem(*diff)
-        return super().difference_update(diff)
+    # def update(self, *other):
+    #     union = set.union(*other)
+    #     self.sadd(*union)
+    #     return super().update(union)
 
-    def difference_update(self, *other):
-        union = set.union(*other)
-        self.srem(*union)
-        return super().difference_update(union)
+    # def symmetric_difference_update(self, other):
+    #     # (self ∪ other) ∖ (self ∩ other)
+    #     # TODO: Should these be pipelined?
+    #     self.sadd(*other)
+    #     self.srem(*self.intersection(other))
+    #     return super().symmetric_difference_update(other)
 
-    def __ixor__(self, other):
-        self.symmetric_difference_update(other)
-        return self
+    # def intersection_update(self, *other):
+    #     # self \ (self \ (self.intersection(*other)))
+    #     diff = self - self.intersection(*other)
+    #     self.srem(*diff)
+    #     return super().difference_update(diff)
 
-    def __ior__(self, other):
-        self.update(other)
-        return self
+    # def difference_update(self, *other):
+    #     union = set.union(*other)
+    #     self.srem(*union)
+    #     return super().difference_update(union)
 
-    def __iand__(self, other):
-        self.intersection_update(other)
-        return self
+    # def __ixor__(self, other):
+    #     self.symmetric_difference_update(other)
+    #     return self
+
+    # def __ior__(self, other):
+    #     self.update(other)
+    #     return self
+
+    # def __iand__(self, other):
+    #     self.intersection_update(other)
+    #     return self
 
     # Default to_redis is fine, default from_redis isn't
     @classmethod

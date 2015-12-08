@@ -100,11 +100,22 @@ class TestFields:
 
 class TestSet:
 
-    def test_add(self):
+    # def test_add(self):
+    #     tm = litetestmodel.new(id='<string>')
+    #     assert not tm.set
+    #     assert not tm.set.smembers()
+    #     tm.set.add(b'<string>')
+    #     assert tm.set
+    #     assert len(tm.set) == 1
+    #     assert tm.set == {b'<string>'}
+    #     assert tm.set.smembers()
+    #     assert tm.set.smembers() == {b'<string>'}
+
+    def test_sadd(self):
         tm = litetestmodel.new(id='<string>')
         assert not tm.set
         assert not tm.set.smembers()
-        tm.set.add(b'<string>')
+        tm.set.sadd(b'<string>')
         assert tm.set
         assert len(tm.set) == 1
         assert tm.set == {b'<string>'}
