@@ -475,7 +475,7 @@ class TestModel:
         assert new.standalone.smembers() == {b'1'}
         del new.standalone
         assert new.standalone.smembers() == set()
-        
+
 
 class TestEncoding:
 
