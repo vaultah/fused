@@ -1,7 +1,5 @@
 from . import exceptions, utils, proxies, auto
 from abc import ABCMeta
-from collections import defaultdict
-from weakref import WeakKeyDictionary
 import ast
 
 
@@ -16,8 +14,6 @@ class MetaField(ABCMeta):
 
 
 class Field(metaclass=MetaField):
-
-    _cache = defaultdict(WeakKeyDictionary)
 
     def __init__(self, *, unique=False, standalone=False, auto=False,
                           required=False):
@@ -39,11 +35,10 @@ class Field(metaclass=MetaField):
             return model.data.get(self.name)
 
         try:
-            return self._cache[self.name][model]
+            return self.get_instance(model)
         except KeyError as e:
             key = model.qualified(self.name, pk=model.primary_key)
-            # TODO: Optimize auto fields by looking at model.data?
-            # No.
+            # TODO: Optimize auto fields by looking at model.data? No.
             if self.auto:
                 rv = self.type(key, model)
                 rv.field = self 
@@ -82,7 +77,10 @@ class Field(metaclass=MetaField):
     #         model._delete_standalone(self.name)
 
     def set_instance(self, model, new):
-        self._cache[self.name][model] = new
+        model._field_cache[self.name] = new
+
+    def get_instance(self, model):
+        return model._field_cache[self.name]
 
 
 class String(Field):

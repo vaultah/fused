@@ -73,6 +73,7 @@ class Model(metaclass=MetaModel):
     _field_sep = ':'
 
     def __init__(self, *, data=None, **ka):
+        self._field_cache = {}
         self.__context_depth__ = 0
         self.data = {}
         # If the PK is present, we assume that the rest of fields
@@ -338,8 +339,6 @@ class Model(metaclass=MetaModel):
         return self.primary_key == other.primary_key
 
     def __hash__(self):
+        # Make it hashable (since I defined the __eq__ method)
+        # The default hash makes more sense to me
         return super().__hash__()
-
-    # def __hash__(self):
-    #     # Make it hashable (since I defined the __eq__ method)
-    #     return hash((type(self), self.primary_key))
