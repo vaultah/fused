@@ -57,6 +57,7 @@ class Field(metaclass=MetaField):
             if not isinstance(value, self.type):
                 # Update the DB
                 key = model.qualified(self.name, pk=model.primary_key)
+                self.type.delete(key, model.__redis__)
                 self.type.save(key, model.__redis__, value)
                 new = self.type(key, model, value)
             else:
@@ -72,10 +73,14 @@ class Field(metaclass=MetaField):
                             '{!r}'.format(self.model_name))
         if self.unique:
             model._delete_unique([self.name])
+            model.data.pop(self.name)
         elif not self.standalone:
             model._delete_plain([self.name])
+            model.data.pop(self.name)
         else:
-            self.type.delete() # TODO
+            key = model.qualified(self.name, pk=model.primary_key)
+            self.type.delete(key, model.__redis__)
+            # TODO: Handle auto fields
 
     def set_instance(self, model, new):
         model._field_cache[self.name] = new

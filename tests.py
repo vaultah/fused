@@ -403,7 +403,7 @@ class TestModel:
         assert ls1.field.field.field.field is ls1
 
     def test_eq(self):
-        new = litetestmodel.new(id='<irrelevant>')
+        litetestmodel.new(id='<irrelevant>')
         r1 = litetestmodel(id='<irrelevant>')
         r2 = litetestmodel(id='<irrelevant>')
         assert r1 != 'something'
@@ -455,6 +455,27 @@ class TestModel:
         assert len(lst) == 1
         assert lst == instances[2:3]
 
+    def test_delete_plain(self):
+        new = fulltestmodel.new(id='<irrelevant 1>', unique='<string>',
+                                required='')
+        del new.required
+        assert new.required is None
+        del new.unique
+        assert new.unique is None
+        reload = fulltestmodel(id='<irrelevant>')
+        assert reload.required is None
+        assert reload.unique is None
+        # Doesn't raise
+        fulltestmodel.new(id='<irrelevant 2>', unique='<string>',
+                          required='')
+
+    def test_delete_standalone(self):
+        new = litetestmodel.new(id='<string>')
+        new.standalone.sadd(b'1')
+        assert new.standalone.smembers() == {b'1'}
+        del new.standalone
+        assert new.standalone.smembers() == set()
+        
 
 class TestEncoding:
 

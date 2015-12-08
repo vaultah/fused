@@ -8,6 +8,10 @@ class autotype(proxies.commandproxy):
         super().__init__(key, model)
 
     @classmethod
+    def delete(cls, key, connection):
+        connection.delete(key)
+
+    @classmethod
     def from_redis(cls, value, encoding=None):
         if isinstance(value, bytes) and encoding is not None:
             return value.decode(encoding)
@@ -37,9 +41,6 @@ class auto_set(set, autotype):
 
     @classmethod
     def save(cls, key, connection, value):
-        # TODO: Is there a better way?
-        # TODO: Should these be pipelined?
-        connection.delete(key)
         connection.sadd(key, *value)
 
     def add(self, elem):
@@ -47,7 +48,7 @@ class auto_set(set, autotype):
         return super().add(elem)
 
     def clear(self):
-        self.delete()
+        self.delete(self.key, self.model.redis)
         return super().clear()
 
     def pop(self):
@@ -121,9 +122,6 @@ class auto_list(list, autotype):
 
     @classmethod
     def save(cls, key, connection, value):
-        # TODO: Is there a better way?
-        # TODO: Should these be pipelined?
-        connection.delete(key)
         connection.rpush(key, *value)
 
     def append(self, elem):
@@ -134,7 +132,7 @@ class auto_list(list, autotype):
         return super().extend(iterable)
 
     def clear(self):
-        self.delete()
+        self.delete(self.key, self.model.redis)
         return super().clear()
 
     def remove(self, elem):
