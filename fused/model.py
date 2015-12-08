@@ -95,7 +95,7 @@ class Model(metaclass=MetaModel):
 
         self.data.update(data or {})
         self._prepare()
-        
+
     @classmethod
     def _get_pk_by_unique(cls, field, value, connection=None):
         # Exactly one action to make it usable with pipes
@@ -220,6 +220,14 @@ class Model(metaclass=MetaModel):
     def _update_unique(self, new_data):
         self._write_unique(new_data, self.primary_key, self.redis)
         self._update_plain(new_data)
+
+    def _delete_plain(self, fields):
+        self.redis.hdel(self.qualified(pk=self.primary_key), *fields)
+
+    def _delete_unique(self, fields):
+        for f in fields:
+            self.redis.hdel(self.qualified(f), self.data[f])
+        self._delete_plain(fields)
 
     @classmethod
     def new(cls, **ka):

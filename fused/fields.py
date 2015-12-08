@@ -66,15 +66,16 @@ class Field(metaclass=MetaField):
         else:
             model._update_plain({self.name: value})
 
-    # TODO:
-    # def __delete__(self, model):
-    #     if model is None:
-    #         raise TypeError('Field.__delete__ requires instance of '
-    #                         '{!r}'.format(self.model_name))
-    #     if not self.standalone:
-    #         model._delete_plain(self.name)
-    #     else:
-    #         model._delete_standalone(self.name)
+    def __delete__(self, model):
+        if model is None:
+            raise TypeError('Field.__delete__ requires instance of '
+                            '{!r}'.format(self.model_name))
+        if self.unique:
+            model._delete_unique([self.name])
+        elif not self.standalone:
+            model._delete_plain([self.name])
+        else:
+            self.type.delete() # TODO
 
     def set_instance(self, model, new):
         model._field_cache[self.name] = new
