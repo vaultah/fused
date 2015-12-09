@@ -52,6 +52,10 @@ class auto_set(set, autotype):
         rem = [super().pop() for _ in range(number)]
         super().__getattr__('srem')(*rem)
 
+    def srem(self, *members):
+        super().difference_update(members)
+        super().__getattr__('srem')(*members)
+
     # def add(self, elem):
     #     self.sadd(elem)
     #     return super().add(elem)
