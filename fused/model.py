@@ -4,7 +4,9 @@ import time
 from abc import ABCMeta
 from collections.abc import Mapping
 from itertools import chain
-from . import fields, utils, exceptions
+from . import utils, exceptions
+# All subclasses of Field and Field itself
+from .fields import *
 
 
 class MetaModel(ABCMeta):
@@ -19,15 +21,15 @@ class MetaModel(ABCMeta):
         cls._pk = None
 
         field_attrs = ((k, v) for k, v in attrs.items()
-                         if isinstance(v, fields.Field))
+                         if isinstance(v, Field))
 
         for name, field in field_attrs:
             field.name, field.model_name = name, model_name
             cls._fields[name] = field
-            if isinstance(field, fields.PrimaryKey):
+            if isinstance(field, PrimaryKey):
                 cls._primary_key = name
 
-            if isinstance(field, fields.Foreign):
+            if isinstance(field, Foreign):
                 cls._foreign[name] = field
 
             if field.unique:
@@ -97,6 +99,14 @@ class Model(metaclass=MetaModel):
         self._prepare()
 
     @classmethod
+    def _to(cls, ob, value):
+        return ob.to_redis(value, cls._redis_encoding)
+
+    @classmethod
+    def _from(cls, ob, value):
+        return ob.from_redis(value, cls._redis_encoding)
+
+    @classmethod
     def _get_pk_by_unique(cls, field, value, connection=None):
         # Exactly one action to make it usable with pipes
         # Lol. Pipeline may be False in boolean context.
@@ -117,16 +127,16 @@ class Model(metaclass=MetaModel):
     @classmethod
     def _get_by_unique(cls, field, value):
         pk = cls._get_pk_by_unique(field, value)
-        decoded = fields.PrimaryKey.from_redis(pk, cls._redis_encoding)
+        decoded = cls._from(PrimaryKey, pk)
         return cls._get_by_pk(decoded)
 
     @classmethod
     def _process_raw(cls, raw):
         rv = {}
         for key, value in raw.items():
-            decoded = fields.String.from_redis(key, cls._redis_encoding)
+            decoded = cls._from(String, key)
             ob = cls._plain[decoded]
-            rv[decoded] = ob.from_redis(value, cls._redis_encoding)
+            rv[decoded] = cls._from(ob, value)
         return rv
 
     def _prepare(self):
@@ -213,7 +223,7 @@ class Model(metaclass=MetaModel):
     def _update_plain(self, new_data):
         save = new_data.copy()
         for k, v in save.items():
-            save[k] = self._plain[k].to_redis(v, self._redis_encoding)
+            save[k] = self._to(v, self._plain[k])
         self.redis.hmset(self.qualified(pk=self.primary_key), save)
         self.data.update(new_data)
 
@@ -274,7 +284,7 @@ class Model(metaclass=MetaModel):
             except KeyError:
                 continue
             else:
-                save[field] = ob.to_redis(value, cls._redis_encoding)
+                save[field] = cls._to(ob, value)
                 data[field] = value
 
         cls.__redis__.hmset(main_key, save)
@@ -301,9 +311,9 @@ class Model(metaclass=MetaModel):
             if limit is None:
                 limit = 100
 
-            pks = [fields.PrimaryKey.from_redis(x, cls._redis_encoding)
-                   for x in cls.__redis__.zrangebyscore(
-                                key, start, stop, start=offset, num=limit)]
+            pks = [cls._from(PrimaryKey, x) for x in
+                   cls.__redis__.zrangebyscore(key, start, stop, start=offset,
+                                               num=limit)]
 
         if pks is not None:
             it = pks
@@ -312,8 +322,7 @@ class Model(metaclass=MetaModel):
             with cls.get_pipeline() as pipe:
                 for v in values:
                     cls._get_pk_by_unique(field, v, pipe)
-                it = (fields.PrimaryKey.from_redis(x, cls._redis_encoding)
-                      for x in pipe.execute())
+                it = (cls._from(PrimaryKey, x) for x in pipe.execute())
 
         with cls.get_pipeline() as pipe:
             for x in it:

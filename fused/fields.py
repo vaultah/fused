@@ -132,4 +132,7 @@ class Foreign(String):
         super().__init__(**ka)
 
 
-__all__ = ['Field'] + [s.__name__ for s in Field.__subclasses__()]
+__all__ = []
+for name, var in list(globals().items()):
+    if isinstance(var, type) and issubclass(var, Field):
+        __all__.append(name)
