@@ -65,7 +65,7 @@ class MetaModel(ABCMeta):
             # Get some information from the connection instance
             # We need encoding and/or decode_responses to handle conversion
             _params = cls.redis.connection_pool.connection_kwargs
-            cls._redis_encoding = _params['encoding']
+            cls._redis_encoding = _params.get('encoding')
 
         return cls
                     
