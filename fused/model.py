@@ -223,7 +223,7 @@ class Model(metaclass=MetaModel):
     def _update_plain(self, new_data):
         save = new_data.copy()
         for k, v in save.items():
-            save[k] = self._to(v, self._plain[k])
+            save[k] = self._to(self._plain[k], v)
         self.redis.hmset(self.qualified(pk=self.primary_key), save)
         self.data.update(new_data)
 
