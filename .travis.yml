@@ -10,5 +10,15 @@ python:
 install:
   - pip install -r requirements.txt
 
+before_script:
+  ###### We need Redis >= 3.0.2 in order to use ZADD ... NX ######
+  - wget http://download.redis.io/releases/redis-stable.tar.gz
+  - tar xzf redis-stable.tar.gz
+  - cd redis-stable
+  - make
+  - echo 'daemonize yes' | src/redis-server -
+  - cd ..
+  ################################################################
+
 script:
   - py.test tests.py
