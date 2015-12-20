@@ -9,6 +9,9 @@ from . import utils, exceptions
 from .fields import *
 
 
+_registry = {}
+
+
 class MetaModel(ABCMeta):
 
     def __new__(mcs, model_name, bases, attrs):
@@ -19,6 +22,7 @@ class MetaModel(ABCMeta):
             attrs[m] = {}
         cls = super().__new__(mcs, model_name, bases, attrs)
         cls._pk = None
+        _registry[cls.__name__] = cls
 
         field_attrs = ((k, v) for k, v in attrs.items()
                          if isinstance(v, Field))
@@ -138,24 +142,26 @@ class Model(metaclass=MetaModel):
             ob = cls._plain[decoded]
             rv[decoded] = cls._from(ob, value)
         return rv
+    
+    @classmethod
+    def _regget(cls, o):
+        return _registry[o.__name__ if isinstance(o, type) else o]
 
     def _prepare(self):
         for field, ob in self._foreign.items():
             if field not in self.data:
                 continue
-            # TODO: There should be a better way
-            gen = (t for t in Model.__subclasses__()
-                      if t.__name__ == ob.foreign)
-            ft, fv = next(gen), self.data[field]
+            ft, fv = self._regget(ob.foreign), self.data[field]
             if not isinstance(fv, ft):
-                ff = ft.get_foreign(type(self).__name__)
+                ff = ft.get_foreign(type(self))
                 self.data[field] = ft(data=dict.fromkeys(ff, self), primary_key=fv)
 
     @classmethod
-    def get_foreign(cls, name=None):
-        if name is None:
+    def get_foreign(cls, fm=None):
+        if fm is None:
             return list(cls._foreign)
-        return [k for k, v in cls._foreign.items() if v.foreign == name]
+        return [k for k, v in cls._foreign.items()
+                  if cls._regget(v.foreign) in {fm, getattr(fm, '__name__', None)}]
 
     @classmethod
     def get_pipeline(cls):

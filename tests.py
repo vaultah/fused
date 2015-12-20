@@ -59,7 +59,7 @@ class foreign_a(model.Model):
 class foreign_b(model.Model):
     redis = TEST_CONNECTION
     id = fields.PrimaryKey()
-    a_field = fields.Foreign('foreign_a')
+    a_field = fields.Foreign(foreign_a)
 
 
 # A model with not-so-foreign relation
