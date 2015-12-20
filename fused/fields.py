@@ -119,6 +119,9 @@ class Bytes(Field):
 class Integer(Field):
     type = auto.auto_int
 
+class SortedSet(Field):
+    pass
+
 
 # TODO: Add Integer (AI) field
 class PrimaryKey(String):
