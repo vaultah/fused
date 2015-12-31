@@ -450,7 +450,7 @@ class TestModel:
         instances.append(litetestmodel.new(id=(2, '2')))
         instances.append(litetestmodel.new(id=(50, '3')))
         instances.append(litetestmodel.new(id=('+inf', '4')))
-        lst = list(litetestmodel.get(limit=2))
+        lst = list(litetestmodel.get(offset=0, limit=2))
         assert len(lst) == 2
         assert lst == instances[:2]
         lst = list(litetestmodel.get(offset=2, limit=2))
@@ -462,7 +462,7 @@ class TestModel:
         lst = list(litetestmodel.get(start=2, stop=50))
         assert len(lst) == 2
         assert lst == instances[1:3]
-        lst = list(litetestmodel.get(offset=1, start=2, stop=50))
+        lst = list(litetestmodel.get(offset=1, start=2, stop=50, limit=10))
         assert len(lst) == 1
         assert lst == instances[2:3]
 

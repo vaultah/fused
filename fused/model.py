@@ -8,7 +8,7 @@ from . import utils, exceptions
 # All subclasses of Field and Field itself
 from .fields import *
 
-
+# Store instances of classes created by MetaModel
 _registry = {}
 
 
@@ -104,14 +104,17 @@ class Model(metaclass=MetaModel):
 
     @classmethod
     def _to(cls, ob, value):
+        ''' Equivalent to ob.to_redis(value, cls._redis_encoding) but shorter '''
         return ob.to_redis(value, cls._redis_encoding)
 
     @classmethod
     def _from(cls, ob, value):
+        ''' Equivalent to ob.from_redis(value, cls._redis_encoding) but shorter '''
         return ob.from_redis(value, cls._redis_encoding)
 
     @classmethod
     def _get_pk_by_unique(cls, field, value, connection=None):
+        ''' Retrieve the primary key by one of the unique fields '''
         # Exactly one action to make it usable with pipes
         # Lol. Pipeline may be False in boolean context.
         conn = connection if connection is not None else cls.__redis__
@@ -119,6 +122,7 @@ class Model(metaclass=MetaModel):
 
     @classmethod
     def _get_raw_by_pk(cls, pk, connection=None):
+        ''' Retrieve the HASH stored at cls.qualified(pk=pk) '''
         # Exactly one action to make it usable with pipes
         # Lol. Pipeline may be False in boolean context.
         conn = connection if connection is not None else cls.__redis__
@@ -126,76 +130,45 @@ class Model(metaclass=MetaModel):
 
     @classmethod
     def _get_by_pk(cls, pk):
+        ''' Retrieve the HASH stored at cls.qualified(pk=pk) and 
+            process it '''
         return cls._process_raw(cls._get_raw_by_pk(pk))
 
     @classmethod
     def _get_by_unique(cls, field, value):
+        ''' Get the primary key by one of the unique fields and return the 
+            result of passing it to _get_by_pk '''
         pk = cls._get_pk_by_unique(field, value)
         decoded = cls._from(PrimaryKey, pk)
         return cls._get_by_pk(decoded)
 
     @classmethod
     def _process_raw(cls, raw):
+        ''' Iterate over raw mapping received from _get_by_pk, convert
+            each value using appropriate from_redis conversion, and
+            return the result '''
         rv = {}
         for key, value in raw.items():
             decoded = cls._from(String, key)
             ob = cls._plain[decoded]
             rv[decoded] = cls._from(ob, value)
         return rv
-    
-    @classmethod
-    def _regget(cls, o):
-        return _registry[o.__name__ if isinstance(o, type) else o]
 
     def _prepare(self):
+        ''' Initialize all 'foreign' fields (create instances of corresponding
+            classes) '''
         for field, ob in self._foreign.items():
             if field not in self.data:
                 continue
-            ft, fv = self._regget(ob.foreign), self.data[field]
+            if isinstance(ob.foreign, type):
+                ft = ob.foreign
+            else:
+                ft = _registry[ob.foreign]
+            fv = self.data[field]
             if not isinstance(fv, ft):
                 ff = ft.get_foreign(type(self))
                 self.data[field] = ft(data=dict.fromkeys(ff, self), primary_key=fv)
 
-    @classmethod
-    def get_foreign(cls, fm=None):
-        if fm is None:
-            return list(cls._foreign)
-        return [k for k, v in cls._foreign.items()
-                  if cls._regget(v.foreign) in {fm, getattr(fm, '__name__', None)}]
-
-    @classmethod
-    def get_pipeline(cls):
-        return cls.__redis__.pipeline()
-
-    @classmethod
-    def count(cls):
-        return cls.__redis__.zcard(cls.qualified('_records'))
-
-    @property
-    def primary_key(self):
-        return self.data[self._primary_key]
-
-    def good(self):
-        return bool(self.data)
-
-    @classmethod
-    def qualified(cls, *args, pk=None):
-        parts = [cls.__name__]
-        if pk is not None:
-            parts.append(pk)
-        parts.extend(args)
-        return cls._field_sep.join(parts)
-        
-    @classmethod
-    def instances(cls, it):
-        it = iter(it)
-        first = next(it)
-        if isinstance(first, Mapping):
-            yield from (cls(data=x) for x in chain((first,), it))
-        elif isinstance(first, cls):
-            yield from chain((first,), it)
-        else:
-            yield from (cls(primary_key=x) for x in chain((first,), it))
 
     @classmethod
     def _write_unique(cls, data, pk, connection=None):
@@ -256,7 +229,66 @@ class Model(metaclass=MetaModel):
         self._delete_plain(fields)
 
     @classmethod
+    def get_foreign(cls, fm=None):
+        ''' Obtain a list of 'foreign' fields with name equal to fm.__name__ if
+            fm is a type and fm otherwise '''
+        if fm is None:
+            return list(cls._foreign)
+        if isinstance(fm, type):
+            fm = fm.__name__
+        rv = []
+        for k, v in cls._foreign.items():
+            if isinstance(v, type):
+                v = v.__name__
+            if v == fm:
+                rv.append(k)
+        return rv
+
+    @classmethod
+    def get_pipeline(cls):
+        ''' Return a Pipeline instance for the specified Redis connection '''
+        return cls.__redis__.pipeline()
+
+    @classmethod
+    def count(cls):
+        ''' Return the number of elements in 'model_name : _records' '''
+        return cls.__redis__.zcard(cls.qualified('_records'))
+
+    @property
+    def primary_key(self):
+        return self.data[self._primary_key]
+
+    def good(self):
+        return bool(self.data)
+
+    @classmethod
+    def qualified(cls, *args, pk=None):
+        ''' Return a fully qualified name. `cls._field_sep` is used as a separator.
+            Example for ':':    model_name : ... : ... : ...
+            If `pk` is not `None`, it will follow the model name immediately. '''
+        parts = [cls.__name__]
+        if pk is not None:
+            parts.append(pk)
+        parts.extend(args)
+        return cls._field_sep.join(parts)
+        
+    @classmethod
+    def instances(cls, it):
+        ''' Return a generator object converting iterable `it` on the fly and 
+            yielding instances of `cls` '''
+        it = iter(it)
+        first = next(it)
+        if isinstance(first, Mapping):
+            yield from (cls(data=x) for x in chain((first,), it))
+        elif isinstance(first, cls):
+            yield from chain((first,), it)
+        else:
+            yield from (cls(primary_key=x) for x in chain((first,), it))
+
+    @classmethod
     def new(cls, **ka):
+        ''' Create and store a new instance of this model.
+            All of the required fields must be provided. '''
         if cls._required_fields.keys() - ka.keys():
             raise exceptions.MissingFields
             
@@ -307,6 +339,7 @@ class Model(metaclass=MetaModel):
         return cls(data=data)
 
     def delete(self):
+        '''  Completely delete the instance of this Model from Redis '''
         if not self.good():
             raise ValueError
 
@@ -322,6 +355,22 @@ class Model(metaclass=MetaModel):
 
     @classmethod
     def get(cls, pks=None, start=None, stop=None, offset=None, limit=None, **ka):
+        ''' Fetch a number of instances from Redis.
+
+            1) `pks` is an iterable of primary keys
+            2) If any of `start`, `stop`, `offset`, `limit` are provided it will 
+            first load primary keys, using ZRANGEBYSCORE where
+                min is `start` (or '-inf', if `start` is None)
+                max is `stop` (or '+inf', if `stop` is None)
+                start is `offset` (or 0, if `offset` is None)
+                count is `limit` and it will be passed to redis-py without modifications
+            3) get also supports keyword arguments. You're expected to provide exactly
+            one `key` -> `value` pair where `key` is one of the unique fields defined for
+            this model and `value` is an iterable of values to search for.
+
+            These groups of parameters are mutually exclusive.
+        '''
+
         z = any(x is not None for x in (start, stop, offset, limit))
         if sum((z, pks is not None, len(ka) == 1)) != 1:
             raise ValueError
@@ -334,12 +383,6 @@ class Model(metaclass=MetaModel):
 
             if stop is None:
                 stop = '+inf'
-
-            if offset is None:
-                offset = 0
-
-            if limit is None:
-                limit = 100
 
             pks = [cls._from(PrimaryKey, x) for x in
                    cls.__redis__.zrangebyscore(key, start, stop, start=offset,
