@@ -122,6 +122,8 @@ class Integer(Field):
 class SortedSet(Field):
     pass
 
+class Hash(Field):
+    pass
 
 # TODO: Add Integer (AI) field
 class PrimaryKey(String):
