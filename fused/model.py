@@ -218,13 +218,22 @@ class Model(metaclass=MetaModel):
             raise exceptions.DuplicateEntry(fields[res], values[res])
 
     @classmethod
-    def _write_pk(cls, pk, score=None):
+    def _write_pk(cls, pk, score=None, connection=None):
         if score is None:
             score = time.time()
-        result = cls._scripts['primary_key'](args=[score, pk],
-                                             keys=[cls.qualified('_records')])
+        result = cls._scripts['primary_key'](
+            args=[score, pk], keys=[cls.qualified('_records')],
+            client=cls.__redis__ if connection is None else connection)
+
         if not result:
             raise exceptions.DuplicateEntry
+        else:
+            return result
+
+    @classmethod
+    def _remove_pk(cls, pk, connection=None):
+        conn = connection if connection is not None else cls.__redis__
+        return conn.zrem(cls.qualified('_records'), pk)
 
     def _update_plain(self, new_data):
         save = new_data.copy()
@@ -238,7 +247,8 @@ class Model(metaclass=MetaModel):
         self._update_plain(new_data)
 
     def _delete_plain(self, fields):
-        self.redis.hdel(self.qualified(pk=self.primary_key), *fields)
+        if fields:
+            self.redis.hdel(self.qualified(pk=self.primary_key), *fields)
 
     def _delete_unique(self, fields):
         for f in fields:
@@ -296,10 +306,20 @@ class Model(metaclass=MetaModel):
         cls.__redis__.hmset(main_key, save)
         return cls(data=data)
 
-    def delete():
-        # TODO ASAP
-        pass
-    
+    def delete(self):
+        if not self.good():
+            raise ValueError
+
+        with self:
+            for name, ob in self._standalone.items():
+                ob.type.delete(self.qualified(name, pk=self.primary_key), self.redis)
+
+            self._delete_unique(self._unique_fields)
+            self._remove_pk(self.primary_key, connection=self.redis)
+            self.redis.delete(self.qualified(pk=self.primary_key))
+
+        self.data.clear()
+
     @classmethod
     def get(cls, pks=None, start=None, stop=None, offset=None, limit=None, **ka):
         z = any(x is not None for x in (start, stop, offset, limit))

@@ -487,6 +487,14 @@ class TestModel:
         del new.standalone
         assert new.standalone.smembers() == set()
 
+    def test_delete(self):
+        new = litetestmodel.new(id='<string>')
+        new.standalone.sadd(b'1')
+        new.delete()
+        assert not new.good()
+        assert new.standalone.smembers() == set()
+        reloaded = litetestmodel(id='<string>')
+        assert not new.good()
 
 class TestEncoding:
 
