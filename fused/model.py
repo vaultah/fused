@@ -296,6 +296,10 @@ class Model(metaclass=MetaModel):
         cls.__redis__.hmset(main_key, save)
         return cls(data=data)
 
+    def delete():
+        # TODO ASAP
+        pass
+    
     @classmethod
     def get(cls, pks=None, start=None, stop=None, offset=None, limit=None, **ka):
         z = any(x is not None for x in (start, stop, offset, limit))
