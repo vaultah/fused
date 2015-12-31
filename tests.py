@@ -446,10 +446,10 @@ class TestModel:
 
     def test_get_zrange(self):
         instances = []
-        instances.append(litetestmodel.new(id=('1', 0)))
-        instances.append(litetestmodel.new(id=('2', 2)))
-        instances.append(litetestmodel.new(id=('3', 50)))
-        instances.append(litetestmodel.new(id=('4', '+inf')))
+        instances.append(litetestmodel.new(id=(0, '1')))
+        instances.append(litetestmodel.new(id=(2, '2')))
+        instances.append(litetestmodel.new(id=(50, '3')))
+        instances.append(litetestmodel.new(id=('+inf', '4')))
         lst = list(litetestmodel.get(limit=2))
         assert len(lst) == 2
         assert lst == instances[:2]
