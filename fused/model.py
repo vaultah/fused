@@ -255,7 +255,7 @@ class Model(metaclass=MetaModel):
 
         pk = ka[cls._primary_key]
         if isinstance(pk, tuple):
-            pk, score = pk
+            score, pk = pk
             ka[cls._primary_key] = pk
         else:
             score = None
