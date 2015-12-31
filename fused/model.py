@@ -221,7 +221,7 @@ class Model(metaclass=MetaModel):
     def _write_pk(cls, pk, score=None):
         if score is None:
             score = time.time()
-        result = cls._scripts['primary_key'](args=[pk, score],
+        result = cls._scripts['primary_key'](args=[score, pk],
                                              keys=[cls.qualified('_records')])
         if not result:
             raise exceptions.DuplicateEntry
