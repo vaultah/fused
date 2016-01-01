@@ -12,10 +12,9 @@ from .fields import *
 _registry = {}
 
 def _rec_bases(o):
-    attrs = [(k, v) for k, v in vars(o).items() if isinstance(v, Field)]
     bases = [x for x in o.__bases__ if len(x.__bases__) > 0]
-    yield from attrs
     yield from (x for b in bases for x in _rec_bases(b))
+    yield from ((k, v) for k, v in vars(o).items() if isinstance(v, Field))
 
 
 class MetaModel(ABCMeta):
@@ -164,7 +163,6 @@ class Model(metaclass=MetaModel):
             fv = self.data[field]
             if not isinstance(fv, ft):
                 ff = ft.get_foreign(type(self))
-                print(ff)
                 self.data[field] = ft(data=dict.fromkeys(ff, self), primary_key=fv)
 
 
