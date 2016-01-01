@@ -6,9 +6,9 @@ import ast
 class MetaField(ABCMeta):
 
     def __new__(mcs, field_name, bases, attrs):
-        if 'type' in attrs:
-            attrs.setdefault('to_redis', attrs['type'].to_redis)
-            attrs.setdefault('from_redis', attrs['type'].from_redis)
+        attrs.setdefault('type', auto.autotype)
+        attrs.setdefault('to_redis', attrs['type'].to_redis)
+        attrs.setdefault('from_redis', attrs['type'].from_redis)
         cls = super().__new__(mcs, field_name, bases, attrs)
         return cls
 
