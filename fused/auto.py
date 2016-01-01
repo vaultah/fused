@@ -259,3 +259,13 @@ class auto_str(str, autotype):
         return connection.set(key, value)
 
     # TODO: iadd
+
+
+class auto_sortedset(autotype):
+    # TODO
+    pass
+
+
+class auto_hash(autotype):
+    # TODO
+    pass

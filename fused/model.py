@@ -11,6 +11,7 @@ from .fields import *
 # Store instances of classes created by MetaModel
 _registry = {}
 
+
 def _rec_bases(o):
     bases = [x for x in o.__bases__ if len(x.__bases__) > 0]
     yield from (x for b in bases for x in _rec_bases(b))

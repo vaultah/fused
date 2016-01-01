@@ -120,10 +120,10 @@ class Integer(Field):
     type = auto.auto_int
 
 class SortedSet(Field):
-    pass
+    type = auto.auto_sortedset
 
 class Hash(Field):
-    pass
+    type = auto.auto_hash
 
 # TODO: Add Integer (AI) field
 class PrimaryKey(String):
