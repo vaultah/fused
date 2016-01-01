@@ -24,7 +24,9 @@ class MetaModel(ABCMeta):
         cls._pk = None
         _registry[cls.__name__] = cls
 
-        field_attrs = ((k, v) for k, v in attrs.items()
+        # `vars(cls)` instead of `attrs` to allow the use of
+        # common fields defined in base models
+        field_attrs = ((k, v) for k, v in list(vars(cls).items())
                          if isinstance(v, Field))
 
         for name, field in field_attrs:
@@ -51,7 +53,7 @@ class MetaModel(ABCMeta):
                 cls._required_fields[name] = field
 
         cls._standalone = dict(cls._standalone_proxy, **cls._standalone_auto)
-        cls._plain = dict(cls._unique_fields, **cls._plain_fields)
+        cls._plain = dict(cls._unique_fields, **cls._plain_fields)  
 
         try:
             cls.__redis__ = cls.redis
