@@ -168,7 +168,7 @@ class Model(metaclass=MetaModel):
 
 
     @classmethod
-    def _write_unique(cls, data, pk, connection=None):
+    def _write_unique(cls, data, pk):
         # Must have the same order
         keys, values, fields = [], [], []
         for k, v in data.items():
@@ -177,8 +177,6 @@ class Model(metaclass=MetaModel):
             values.append(v)
 
         kwargs = {'args': [pk, json.dumps(values)], 'keys': keys}
-        if connection is not None:
-            kwargs['client'] = connection
         res = cls._scripts['unique'](**kwargs)
         # 0 for success
         # 1 ... len(fields) is an error
@@ -188,12 +186,11 @@ class Model(metaclass=MetaModel):
             raise exceptions.DuplicateEntry(fields[res], values[res])
 
     @classmethod
-    def _write_pk(cls, pk, score=None, connection=None):
+    def _write_pk(cls, pk, score=None):
         if score is None:
             score = time.time()
         result = cls._scripts['primary_key'](
-            args=[score, pk], keys=[cls.qualified('_records')],
-            client=cls.__redis__ if connection is None else connection)
+            args=[score, pk], keys=[cls.qualified('_records')])
 
         if not result:
             raise exceptions.DuplicateEntry
@@ -213,7 +210,7 @@ class Model(metaclass=MetaModel):
         self.data.update(new_data)
 
     def _update_unique(self, new_data):
-        self._write_unique(new_data, self.primary_key, self.redis)
+        self._write_unique(new_data, self.primary_key)
         self._update_plain(new_data)
 
     def _delete_plain(self, fields):
