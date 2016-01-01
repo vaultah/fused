@@ -126,15 +126,14 @@ class Model(metaclass=MetaModel):
             Exactly one action to make it usable with pipes. '''
         # TIL: Pipelines may be False in boolean context.
         conn = connection if connection is not None else cls.__redis__
-        return conn.hgetall(cls.qualified(pk=pk))
+        return conn.hgetall(cls.qualified(pk=cls._from(PrimaryKey, pk)))
 
     @classmethod
     def _get_raw_by_unique(cls, field, value):
         ''' Get the primary key by one of the unique fields and return the 
             result of passing it to _get_raw_by_pk '''
         pk = cls._get_raw_pk_by_unique(field, value)
-        decoded = cls._from(PrimaryKey, pk)
-        return cls._get_raw_by_pk(decoded)
+        return cls._get_raw_by_pk(cls._from(PrimaryKey, pk))
 
     @classmethod
     def _process_raw(cls, raw):
