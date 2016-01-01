@@ -95,7 +95,7 @@ class Model(metaclass=MetaModel):
                 raise TypeError('Attempted to get by non-unique'
                                 ' field {!r}'.format(field))
             else:
-                raw = self._get_by_unique(field, value)
+                raw = self._get_raw_by_unique(field, value)
 
             self.data.update(self._process_raw(raw))
 
@@ -113,38 +113,32 @@ class Model(metaclass=MetaModel):
         return ob.from_redis(value, cls._redis_encoding)
 
     @classmethod
-    def _get_pk_by_unique(cls, field, value, connection=None):
-        ''' Retrieve the primary key by one of the unique fields '''
-        # Exactly one action to make it usable with pipes
-        # Lol. Pipeline may be False in boolean context.
+    def _get_raw_pk_by_unique(cls, field, value, connection=None):
+        ''' Retrieve the primary key by one of the unique fields
+            Exactly one action to make it usable with pipes. '''
+        # TIL: Pipelines may be False in boolean context.
         conn = connection if connection is not None else cls.__redis__
         return conn.hget(cls.qualified(field), value)
 
     @classmethod
     def _get_raw_by_pk(cls, pk, connection=None):
-        ''' Retrieve the HASH stored at cls.qualified(pk=pk) '''
-        # Exactly one action to make it usable with pipes
-        # Lol. Pipeline may be False in boolean context.
+        ''' Retrieve the HASH stored at cls.qualified(pk=pk).
+            Exactly one action to make it usable with pipes. '''
+        # TIL: Pipelines may be False in boolean context.
         conn = connection if connection is not None else cls.__redis__
         return conn.hgetall(cls.qualified(pk=pk))
 
     @classmethod
-    def _get_by_pk(cls, pk):
-        ''' Retrieve the HASH stored at cls.qualified(pk=pk) and 
-            process it '''
-        return cls._process_raw(cls._get_raw_by_pk(pk))
-
-    @classmethod
-    def _get_by_unique(cls, field, value):
+    def _get_raw_by_unique(cls, field, value):
         ''' Get the primary key by one of the unique fields and return the 
-            result of passing it to _get_by_pk '''
-        pk = cls._get_pk_by_unique(field, value)
+            result of passing it to _get_raw_by_pk '''
+        pk = cls._get_raw_pk_by_unique(field, value)
         decoded = cls._from(PrimaryKey, pk)
-        return cls._get_by_pk(decoded)
+        return cls._get_raw_by_pk(decoded)
 
     @classmethod
     def _process_raw(cls, raw):
-        ''' Iterate over raw mapping received from _get_by_pk, convert
+        ''' Iterate over raw mapping received t to _get_raw_by_pk, convert
             each value using appropriate from_redis conversion, and
             return the result '''
         rv = {}
@@ -167,6 +161,7 @@ class Model(metaclass=MetaModel):
             fv = self.data[field]
             if not isinstance(fv, ft):
                 ff = ft.get_foreign(type(self))
+                print(ff)
                 self.data[field] = ft(data=dict.fromkeys(ff, self), primary_key=fv)
 
 
@@ -238,9 +233,8 @@ class Model(metaclass=MetaModel):
             fm = fm.__name__
         rv = []
         for k, v in cls._foreign.items():
-            if isinstance(v, type):
-                v = v.__name__
-            if v == fm:
+            name = v.foreign.__name__ if isinstance(v.foreign, type) else v.foreign
+            if name == fm:
                 rv.append(k)
         return rv
 
@@ -394,7 +388,7 @@ class Model(metaclass=MetaModel):
             field, values = ka.popitem()
             with cls.get_pipeline() as pipe:
                 for v in values:
-                    cls._get_pk_by_unique(field, v, pipe)
+                    cls._get_raw_pk_by_unique(field, v, pipe)
                 it = (cls._from(PrimaryKey, x) for x in pipe.execute())
 
         with cls.get_pipeline() as pipe:
