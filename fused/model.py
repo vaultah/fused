@@ -11,6 +11,12 @@ from .fields import *
 # Store instances of classes created by MetaModel
 _registry = {}
 
+def _rec_bases(o):
+    attrs = [(k, v) for k, v in vars(o).items() if isinstance(v, Field)]
+    bases = [x for x in o.__bases__ if len(x.__bases__) > 0]
+    yield from attrs
+    yield from (x for b in bases for x in _rec_bases(b))
+
 
 class MetaModel(ABCMeta):
 
@@ -24,12 +30,8 @@ class MetaModel(ABCMeta):
         cls._pk = None
         _registry[cls.__name__] = cls
 
-        # `vars(cls)` instead of `attrs` to allow the use of
-        # common fields defined in base models
-        field_attrs = ((k, v) for k, v in list(vars(cls).items())
-                         if isinstance(v, Field))
-
-        for name, field in field_attrs:
+        # Allow the use of common fields defined in base models
+        for name, field in dict(_rec_bases(cls)).items():
             field.name, field.model_name = name, model_name
             cls._fields[name] = field
             if isinstance(field, PrimaryKey):
