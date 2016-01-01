@@ -1,13 +1,12 @@
 class callproxy:
 
-    __slots__ = ('key', 'attr', 'method')
+    __slots__ = ('key', 'attr', 'model')
 
     def __init__(self, key, model, attr):
-        self.key, self.attr = key, attr
-        self.method = getattr(model.redis, attr)
+        self.key, self.attr, self.model  = key, attr, model
 
     def __call__(self, *a, **ka):
-        return self.method(self.key, *a, **ka)
+        return getattr(self.model.redis, self.attr)(self.key, *a, **ka)
 
     def __repr__(self):
         return '<{!r} proxy for {!r} at {:#x}>'.format(
