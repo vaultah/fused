@@ -107,16 +107,6 @@ class Model(metaclass=MetaModel):
         self._prepare()
 
     @classmethod
-    def _to(cls, ob, value):
-        ''' Equivalent to ob.to_redis(value, cls._redis_encoding) but shorter '''
-        return ob.to_redis(value, cls._redis_encoding)
-
-    @classmethod
-    def _from(cls, ob, value):
-        ''' Equivalent to ob.from_redis(value, cls._redis_encoding) but shorter '''
-        return ob.from_redis(value, cls._redis_encoding)
-
-    @classmethod
     def _get_raw_pk_by_unique(cls, field, value, connection=None):
         ''' Retrieve the primary key by one of the unique fields
             Exactly one action to make it usable with pipes. '''
@@ -130,14 +120,14 @@ class Model(metaclass=MetaModel):
             Exactly one action to make it usable with pipes. '''
         # TIL: Pipelines may be False in boolean context.
         conn = connection if connection is not None else cls.__redis__
-        return conn.hgetall(cls.qualified(pk=cls._from(PrimaryKey, pk)))
+        return conn.hgetall(cls.qualified(pk=cls.decode(PrimaryKey, pk)))
 
     @classmethod
     def _get_raw_by_unique(cls, field, value):
         ''' Get the primary key by one of the unique fields and return the 
             result of passing it to _get_raw_by_pk '''
         pk = cls._get_raw_pk_by_unique(field, value)
-        return cls._get_raw_by_pk(cls._from(PrimaryKey, pk))
+        return cls._get_raw_by_pk(cls.decode(PrimaryKey, pk))
 
     @classmethod
     def _process_raw(cls, raw):
@@ -146,9 +136,9 @@ class Model(metaclass=MetaModel):
             return the result '''
         rv = {}
         for key, value in raw.items():
-            decoded = cls._from(String, key)
+            decoded = cls.decode(String, key)
             ob = cls._plain[decoded]
-            rv[decoded] = cls._from(ob, value)
+            rv[decoded] = cls.decode(ob, value)
         return rv
 
     def _prepare(self):
@@ -205,7 +195,7 @@ class Model(metaclass=MetaModel):
     def _update_plain(self, new_data):
         save = new_data.copy()
         for k, v in save.items():
-            save[k] = self._to(self._plain[k], v)
+            save[k] = self.encode(self._plain[k], v)
         self.redis.hmset(self.qualified(pk=self.primary_key), save)
         self.data.update(new_data)
 
@@ -221,6 +211,16 @@ class Model(metaclass=MetaModel):
         for f in fields:
             self.redis.hdel(self.qualified(f), self.data[f])
         self._delete_plain(fields)
+        
+    @classmethod
+    def encode(cls, ob, value):
+        ''' Equivalent to ob.to_redis(value, cls._redis_encoding) but shorter '''
+        return ob.to_redis(value, cls._redis_encoding)
+
+    @classmethod
+    def decode(cls, ob, value):
+        ''' Equivalent to ob.from_redis(value, cls._redis_encoding) but shorter '''
+        return ob.from_redis(value, cls._redis_encoding)
 
     @classmethod
     def get_foreign(cls, fm=None):
@@ -325,7 +325,7 @@ class Model(metaclass=MetaModel):
             except KeyError:
                 continue
             else:
-                save[field] = cls._to(ob, value)
+                save[field] = cls.encode(ob, value)
                 data[field] = value
 
         cls.__redis__.hmset(main_key, save)
@@ -377,7 +377,7 @@ class Model(metaclass=MetaModel):
             if stop is None:
                 stop = '+inf'
 
-            pks = [cls._from(PrimaryKey, x) for x in
+            pks = [cls.decode(PrimaryKey, x) for x in
                    cls.__redis__.zrangebyscore(key, start, stop, start=offset,
                                                num=limit)]
 
@@ -388,7 +388,7 @@ class Model(metaclass=MetaModel):
             with cls.get_pipeline() as pipe:
                 for v in values:
                     cls._get_raw_pk_by_unique(field, v, pipe)
-                it = (cls._from(PrimaryKey, x) for x in pipe.execute())
+                it = (cls.decode(PrimaryKey, x) for x in pipe.execute())
 
         with cls.get_pipeline() as pipe:
             for x in it:
