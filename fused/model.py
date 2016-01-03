@@ -266,17 +266,19 @@ class Model(metaclass=MetaModel):
         return cls._field_sep.join(parts)
 
     @classmethod
+    def instance(cls, ob):
+        if isinstance(ob, Mapping):
+            return cls(data=ob)
+        elif isinstance(ob, cls):
+            return ob
+        else:
+            return cls(primary_key=ob)
+
+    @classmethod
     def instances(cls, it):
         ''' Return a generator object converting iterable `it` on the fly and 
             yielding instances of `cls` '''
-        it = iter(it)
-        first = next(it)
-        if isinstance(first, Mapping):
-            yield from (cls(data=x) for x in chain((first,), it))
-        elif isinstance(first, cls):
-            yield from chain((first,), it)
-        else:
-            yield from (cls(primary_key=x) for x in chain((first,), it))
+        yield from (cls.instance(x) for x in it)
 
     @classmethod
     def new(cls, **ka):
