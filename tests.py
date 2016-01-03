@@ -313,8 +313,8 @@ class TestModel:
 
     def test_new_plain(self):
         # Plain fields
-        ka = {'id': 'A', 'unique': '<string>',
-              'required': '', 'plain_set': {1, 2, 3}}
+        ka = {'id': 'A', 'unique': '<string>', 'required': '',
+              'plain_set': {1, 2, 3}}
         new = fulltestmodel.new(**ka)
         for k in ka:
             assert ka[k] == getattr(new, k)
@@ -326,8 +326,7 @@ class TestModel:
             assert ka[k] == getattr(reloaded, k)
 
     def test_new_uniqueness(self):
-        ka = {'id': 'A', 'unique': '<string>',
-              'required': ''}
+        ka = {'id': 'A', 'unique': '<string>', 'required': ''}
         fulltestmodel.new(**ka)
         ka['id'] = 'B'
         with pytest.raises(exceptions.DuplicateEntry):
@@ -340,8 +339,7 @@ class TestModel:
 
     def test_new_auto(self):
         val = {b'1', b'2', b'3'}
-        ka = {'id': 'A', 'unique': '<string>',
-              'required': '', 'auto_set': val}
+        ka = {'id': 'A', 'unique': '<string>', 'required': '', 'auto_set': val}
         new = fulltestmodel.new(**ka)
         assert isinstance(new.auto_set, auto.autotype)
         assert isinstance(new.auto_set, proxies.commandproxy)
@@ -350,8 +348,7 @@ class TestModel:
 
     def test_new_proxy(self):
         val = {b'1', b'2', b'3'}
-        ka = {'id': 'A', 'unique': '<string>',
-              'required': '', 'proxy_set': val}
+        ka = {'id': 'A', 'unique': '<string>', 'required': '', 'proxy_set': val}
         new = fulltestmodel.new(**ka)
         assert isinstance(new.proxy_set, proxies.commandproxy)
         assert new.proxy_set.smembers() == val
@@ -467,8 +464,7 @@ class TestModel:
         assert lst == instances[2:3]
 
     def test_delete_plain(self):
-        new = fulltestmodel.new(id='A', unique='<string>',
-                                required='')
+        new = fulltestmodel.new(id='A', unique='<string>', required='')
         del new.required
         assert new.required is None
         del new.unique
@@ -477,8 +473,7 @@ class TestModel:
         assert reloaded.required is None
         assert reloaded.unique is None
         # Doesn't raise
-        fulltestmodel.new(id='B', unique='<string>',
-                          required='')
+        fulltestmodel.new(id='B', unique='<string>', required='')
 
     def test_delete_standalone(self):
         new = litetestmodel.new(id='A')
@@ -511,7 +506,7 @@ class TestModel:
 class TestEncoding:
 
     def test_decode_responses(self):
-        ka = {'id': 'A', 'str': '¿Cómo está usted?',
+        ka = {'id': 'A', 'str': '¿Cómo está usted?', 
               'bytes': b'\x00 and some more chars',
               'plain_set': {1, 2, 3, 'a', b'b', ('c',)}}
         new = decodetestmodel.new(**ka)
