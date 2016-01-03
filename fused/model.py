@@ -285,11 +285,15 @@ class Model(metaclass=MetaModel):
         ''' Create and store a new instance of this model.
             All of the required fields must be provided. '''
         if cls._required_fields.keys() - ka.keys():
-            raise exceptions.MissingFields
+            raise exceptions.MissingFields('Some of the required fields are missing')
             
         if cls._primary_key not in ka:
-            raise exceptions.NoPrimaryKey
+            raise exceptions.NoPrimaryKey('The primary key must be specified')
 
+        # Primary key can also be provided as a tuple (score, pk_value)
+        # If that's the case, `score` will be used in
+        # _records SortedSet in Redis
+        # The default `score` is `time.time()`
         pk = ka[cls._primary_key]
         if isinstance(pk, tuple):
             score, pk = pk
@@ -297,40 +301,43 @@ class Model(metaclass=MetaModel):
         else:
             score = None
 
-        main_key = cls.qualified(pk=pk)
-        
         cls._write_pk(pk, score)
 
+        data = ka.copy()
+        data[cls._primary_key] = pk
+
+        # Replace instances of foreign types with primary keys
+        for field in ka.keys() & cls._foreign.keys():
+            try:
+                ka[field] = ka[field].primary_key
+            except AttributeError:
+                continue
+
+        main_key = cls.qualified(pk=pk)
+
+        # Unique fields
         if cls._unique_fields:
-            data = {k: ka[k] for k in 
+            unique = {k: ka[k] for k in 
                      cls._unique_keys.keys() & ka.keys()}
-            cls._write_unique(data, pk)
+            cls._write_unique(unique, pk)
 
-        # Set the rest of fields
-
-        # All standalone fields
+        # Standalone fields
         with cls.get_pipeline() as pipe:
-            for field, ob in cls._standalone.items():
-                try:
-                    value = ka[field]
-                except KeyError:
-                    continue
-                else:
-                    ob.type.save(cls.qualified(field, pk=pk), pipe, value)
+            for field in cls._standalone.keys() & ka.keys():
+                value, ob = ka[field], cls._standalone[field]
+                print(ob)
+                ob.type.save(cls.qualified(field, pk=pk), pipe, value)
+                
             pipe.execute()
 
         # Unique and plain fields
-        save, data = {cls._primary_key: pk}, {cls._primary_key: pk}
-        for field, ob in cls._plain.items():
-            try:
-                value = ka[field]
-            except KeyError:
-                continue
-            else:
-                save[field] = cls.encode(ob, value)
-                data[field] = value
+        save = {cls._primary_key: pk}
+        for field in cls._plain.keys() & ka.keys():
+            value = ka[field]
+            save[field] = cls.encode(cls._plain[field], value)
 
         cls.__redis__.hmset(main_key, save)
+
         return cls(data=data)
 
     def delete(self):

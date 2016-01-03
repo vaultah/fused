@@ -360,22 +360,22 @@ class TestModel:
         ka = {'id': '<irrelevant>', 'unique': '<string>', 'required': ''}
         new = fulltestmodel.new(**ka)
         # By the primary key
-        reload = fulltestmodel(id=ka['id'])
+        reloaded = fulltestmodel(id=ka['id'])
         for k in ka:
-            assert ka[k] == getattr(reload, k)
+            assert ka[k] == getattr(reloaded, k)
 
         # By unique field
-        reload = fulltestmodel(unique=ka['unique'])
+        reloaded = fulltestmodel(unique=ka['unique'])
         for k in ka:
-            assert ka[k] == getattr(reload, k)
+            assert ka[k] == getattr(reloaded, k)
 
     def test_instant_update_plain(self):
         ka = {'id': '<irrelevant>', 'unique': '<string>', 'required': ''}
         new = fulltestmodel.new(**ka)
         new.required = 'new value'
         assert new.required == 'new value'
-        reload = fulltestmodel(id=ka['id'])
-        assert reload.required == 'new value'
+        reloaded = fulltestmodel(id=ka['id'])
+        assert reloaded.required == 'new value'
 
     def test_instant_update_unique(self):
         ka1 = {'id': '<irrelevant 1>', 'unique': '<string 1>', 'required': ''}
@@ -386,8 +386,8 @@ class TestModel:
         new.unique = '<string>'
         assert new.unique == '<string>'
         # Does reloading change anything?
-        reload = fulltestmodel(id=ka1['id'])
-        assert reload.unique == '<string>'
+        reloaded = fulltestmodel(id=ka1['id'])
+        assert reloaded.unique == '<string>'
 
         with pytest.raises(exceptions.DuplicateEntry):
             new.unique = other.unique
@@ -473,9 +473,9 @@ class TestModel:
         assert new.required is None
         del new.unique
         assert new.unique is None
-        reload = fulltestmodel(id='<irrelevant>')
-        assert reload.required is None
-        assert reload.unique is None
+        reloaded = fulltestmodel(id='<irrelevant>')
+        assert reloaded.required is None
+        assert reloaded.unique is None
         # Doesn't raise
         fulltestmodel.new(id='<irrelevant 2>', unique='<string>',
                           required='')
@@ -496,6 +496,18 @@ class TestModel:
         reloaded = litetestmodel(id='<string>')
         assert not new.good()
 
+    def test_new_foreign(self):
+        # Model.new(field=X) where X is an instance of some
+        # foreign type must return an instance of Model with
+        # 'field' set to X
+        fa = foreign_a.new(id='<irrelevant 1>', b_field='<irrelevant 2>')
+        fb = foreign_b.new(id='<irrelevant 2>', a_field='<irrelevant 1>')
+        new_a = foreign_a.new(id='<irrelevant 3>', b_field=fb)
+        assert new_a.b_field is fb
+        reloaded = foreign_a(id='<irrelevant 3>')
+        assert reloaded.b_field == fb
+
+
 class TestEncoding:
 
     def test_decode_responses(self):
@@ -506,13 +518,13 @@ class TestEncoding:
         for k in ka:
             assert ka[k] == getattr(new, k)
 
-        reload = decodetestmodel(id=ka['id'])
+        reloaded = decodetestmodel(id=ka['id'])
         # If decode_responses is True, it will raise
         # AssertionError for 'bytes', this is by design
         for k in ka.keys() - {'bytes'}:
-            assert ka[k] == getattr(reload, k)
+            assert ka[k] == getattr(reloaded, k)
 
-        assert ka['bytes'] != reload.bytes
+        assert ka['bytes'] != reloaded.bytes
 
     def test_no_decode_responses(self):
         ka = {'id': '<irrelevant>', 'str': '¿Cómo está usted?',
@@ -522,7 +534,7 @@ class TestEncoding:
         for k in ka:
             assert ka[k] == getattr(new, k)
 
-        reload = nodecodetestmodel(id=ka['id'])
+        reloaded = nodecodetestmodel(id=ka['id'])
         # decode_responses is False, 'bytes' won't be decoded
         for k in ka.keys():
-            assert ka[k] == getattr(reload, k)
+            assert ka[k] == getattr(reloaded, k)
