@@ -264,19 +264,17 @@ class Model(metaclass=MetaModel):
             parts.append(pk)
         parts.extend(args)
         return cls._field_sep.join(parts)
-        
+
     @classmethod
-    def instances(cls, it):
+    def instances(cls, *args):
         ''' Return a generator object converting iterable `it` on the fly and 
             yielding instances of `cls` '''
-        it = iter(it)
-        first = next(it)
-        if isinstance(first, Mapping):
-            yield from (cls(data=x) for x in chain((first,), it))
-        elif isinstance(first, cls):
-            yield from chain((first,), it)
+        if isinstance(args[0], Mapping):
+            yield from (cls(data=x) for x in args)
+        elif isinstance(args[0], cls):
+            yield from args
         else:
-            yield from (cls(primary_key=x) for x in chain((first,), it))
+            yield from (cls(primary_key=x) for x in args)
 
     @classmethod
     def new(cls, **ka):
@@ -395,7 +393,7 @@ class Model(metaclass=MetaModel):
                 cls._get_raw_by_pk(x, pipe)
             raw = pipe.execute()
 
-        yield from cls.instances(cls._process_raw(r) for r in raw)
+        yield from cls.instances(*(cls._process_raw(r) for r in raw))
         
     def __enter__(self):
         if not self.__context_depth__:
