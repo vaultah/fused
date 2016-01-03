@@ -72,7 +72,7 @@ class self_foreign(model.Model):
 class TestFields:
 
     def test_types(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         # Proxy fields
         assert type(tm.standalone) is proxies.commandproxy
         assert type(tm.standalone.get) is proxies.callproxy
@@ -87,7 +87,7 @@ class TestFields:
         ('LPUSH', (b'<string>',), 'LRANGE', (0, -1))
     ])
     def test_proxy(self, command, args, inverse, invargs):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         proxy = getattr(tm.standalone, command.lower())
         iproxy = getattr(tm.standalone, inverse.lower())
         assert all(x == y for x, y in zip(args, iproxy(*invargs)))
@@ -101,7 +101,7 @@ class TestFields:
 class TestSet:
 
     # def test_add(self):
-    #     tm = litetestmodel.new(id='<string>')
+    #     tm = litetestmodel.new(id='A')
     #     assert not tm.set
     #     assert not tm.set.smembers()
     #     tm.set.add(b'<string>')
@@ -112,7 +112,7 @@ class TestSet:
     #     assert tm.set.smembers() == {b'<string>'}
 
     def test_sadd(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         assert not tm.set
         assert not tm.set.smembers()
         tm.set.sadd(b'<string>')
@@ -123,14 +123,14 @@ class TestSet:
         assert tm.set.smembers() == {b'<string>'}
 
     def test_clear(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         tm.set.add(b'<string>')
         tm.set.clear()
         assert not tm.set
         assert not tm.set.smembers()
 
     def test_pop(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         tm.set.add(b'<string>')
         tm.set.pop()
         assert not tm.set
@@ -139,7 +139,7 @@ class TestSet:
             tm.set.pop()
 
     def test_remove(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         tm.set.add(b'<string>')
         tm.set.remove(b'<string>')
         assert not tm.set
@@ -148,7 +148,7 @@ class TestSet:
             tm.set.remove(b'<string>')
 
     def test_discard(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         tm.set.add(b'a')
         tm.set.discard(b'a')
         assert not tm.set
@@ -157,7 +157,7 @@ class TestSet:
         tm.set.discard(b'a')
 
     def test_update(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         other = ({b'a', b'b', b'c', b'd'},
                  {b'e', b'f', b'g', b'h'})
         tm.set.update(*other)
@@ -167,7 +167,7 @@ class TestSet:
         assert tm.set.smembers() == flat
 
     def test_symmetric_difference_update(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         tm.set.add(b'a')
         tm.set.add(b'b')
         other = {b'b', b'c'}
@@ -179,7 +179,7 @@ class TestSet:
         assert tm.set.smembers() == symdiff
 
     def test_intersection_update(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         tm.set.add(b'a')
         tm.set.add(b'b')
         tm.set.add(b'c')
@@ -191,7 +191,7 @@ class TestSet:
         assert tm.set.smembers() == intersection
 
     def test_difference_update(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         tm.set.add(b'a')
         tm.set.add(b'b')
         tm.set.add(b'c')
@@ -203,7 +203,7 @@ class TestSet:
         assert tm.set.smembers() == {b'a'}
 
     def test_set(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         new = {b'1', b'2', b'3'}
         assert tm.set == set()
         tm.set = new
@@ -213,7 +213,7 @@ class TestSet:
 class TestList:
 
     def test_append(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         assert not tm.list
         lst = [b'a', b'b']
         for x in lst:
@@ -224,7 +224,7 @@ class TestList:
         assert tm.list.lrange(0, -1) == lst
 
     def test_extend(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         assert not tm.list
         lst = [b'a', b'b']
         tm.list.extend(lst)
@@ -234,14 +234,14 @@ class TestList:
         assert tm.list.lrange(0, -1) == [b'a', b'b']
 
     def test_clear(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         tm.list.append(b'<string>')
         tm.list.clear()
         assert not tm.list
         assert not tm.list.lrange(0, -1)
 
     def test_remove(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         lst = [b'a', b'b', b'a']
         tm.list.extend(lst)
         tm.list.remove(b'a')
@@ -249,7 +249,7 @@ class TestList:
         assert tm.list == lst[1:]
 
     def test_pop(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         lst = [b'a', b'b', b'c', b'd']
         tm.list.extend(lst)
         tm.list.pop()
@@ -262,7 +262,7 @@ class TestList:
             tm.list.pop(1)
 
     def test_set(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         new = [b'1', b'2', b'3']
         assert tm.list == []
         tm.list = new
@@ -270,7 +270,7 @@ class TestList:
         assert tm.list.lrange(0, -1) == new
 
     def test_insert(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         lst = [b'a', b'b', b'c', b'd']
         tm.list.extend(lst)
         tm.list.insert(0, b'e')
@@ -282,7 +282,7 @@ class TestList:
         assert tm.list.lrange(0, -1) == lst + [b'e']
 
     def test_setitem(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         lst = [b'a', b'b', b'c', b'd']
         tm.list.extend(lst)
         tm.list[0] = b'e'
@@ -296,13 +296,13 @@ class TestList:
 class TestInteger:
 
     def test_set(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         assert tm.int == 0
         tm.int = 43
         assert tm.int == 43
 
     def test_incr(self):
-        tm = litetestmodel.new(id='<string>')
+        tm = litetestmodel.new(id='A')
         tm.int += 41
         assert tm.int == 41
         tm.int += 2
@@ -313,7 +313,7 @@ class TestModel:
 
     def test_new_plain(self):
         # Plain fields
-        ka = {'id': '<irrelevant 1>', 'unique': '<string>',
+        ka = {'id': 'A', 'unique': '<string>',
               'required': '', 'plain_set': {1, 2, 3}}
         new = fulltestmodel.new(**ka)
         for k in ka:
@@ -326,21 +326,21 @@ class TestModel:
             assert ka[k] == getattr(reloaded, k)
 
     def test_new_uniqueness(self):
-        ka = {'id': '<irrelevant 1>', 'unique': '<string>',
+        ka = {'id': 'A', 'unique': '<string>',
               'required': ''}
         fulltestmodel.new(**ka)
-        ka['id'] = '<irrelevant 2>'
+        ka['id'] = 'B'
         with pytest.raises(exceptions.DuplicateEntry):
             fulltestmodel.new(**ka)
 
     def test_new_pk_uniqueness(self):
-        new = litetestmodel.new(id='<string>')
+        new = litetestmodel.new(id='A')
         with pytest.raises(exceptions.DuplicateEntry):
-            litetestmodel.new(id='<string>')
+            litetestmodel.new(id='A')
 
     def test_new_auto(self):
         val = {b'1', b'2', b'3'}
-        ka = {'id': '<irrelevant>', 'unique': '<string>',
+        ka = {'id': 'A', 'unique': '<string>',
               'required': '', 'auto_set': val}
         new = fulltestmodel.new(**ka)
         assert isinstance(new.auto_set, auto.autotype)
@@ -350,14 +350,14 @@ class TestModel:
 
     def test_new_proxy(self):
         val = {b'1', b'2', b'3'}
-        ka = {'id': '<irrelevant>', 'unique': '<string>',
+        ka = {'id': 'A', 'unique': '<string>',
               'required': '', 'proxy_set': val}
         new = fulltestmodel.new(**ka)
         assert isinstance(new.proxy_set, proxies.commandproxy)
         assert new.proxy_set.smembers() == val
 
     def test_load(self):
-        ka = {'id': '<irrelevant>', 'unique': '<string>', 'required': ''}
+        ka = {'id': 'A', 'unique': '<string>', 'required': ''}
         new = fulltestmodel.new(**ka)
         # By the primary key
         reloaded = fulltestmodel(id=ka['id'])
@@ -370,7 +370,7 @@ class TestModel:
             assert ka[k] == getattr(reloaded, k)
 
     def test_instant_update_plain(self):
-        ka = {'id': '<irrelevant>', 'unique': '<string>', 'required': ''}
+        ka = {'id': 'A', 'unique': '<string>', 'required': ''}
         new = fulltestmodel.new(**ka)
         new.required = 'new value'
         assert new.required == 'new value'
@@ -378,8 +378,8 @@ class TestModel:
         assert reloaded.required == 'new value'
 
     def test_instant_update_unique(self):
-        ka1 = {'id': '<irrelevant 1>', 'unique': '<string 1>', 'required': ''}
-        ka2 = {'id': '<irrelevant 2>', 'unique': '<string 2>', 'required': ''}
+        ka1 = {'id': 'A', 'unique': '<string 1>', 'required': ''}
+        ka2 = {'id': 'B', 'unique': '<string 2>', 'required': ''}
         new = fulltestmodel.new(**ka1)
         other = fulltestmodel.new(**ka2)
         # Can we update it?
@@ -393,20 +393,20 @@ class TestModel:
             new.unique = other.unique
 
     def test_foreign(self):
-        fa = foreign_a.new(id='<irrelevant 1>', b_field='<irrelevant 2>')
-        fb = foreign_b.new(id='<irrelevant 2>', a_field='<irrelevant 1>')
+        fa = foreign_a.new(id='A', b_field='B')
+        fb = foreign_b.new(id='B', a_field='A')
         # Load foreign_a
-        la = foreign_a(id='<irrelevant 1>')
+        la = foreign_a(id='A')
         assert isinstance(la.b_field, foreign_b)
         assert isinstance(la.b_field.a_field, foreign_a)
         assert la.b_field.a_field is la
         assert la.b_field.a_field.b_field is la.b_field
 
     def test_self_foreign(self):
-        sf1 = self_foreign.new(id='<irrelevant 1>', field='<irrelevant 2>')
-        sf2 = self_foreign.new(id='<irrelevant 2>', field='<irrelevant 1>')
+        sf1 = self_foreign.new(id='A', field='B')
+        sf2 = self_foreign.new(id='B', field='A')
         # Load foreign_a
-        ls1 = self_foreign(id='<irrelevant 1>')
+        ls1 = self_foreign(id='A')
         assert isinstance(ls1.field, self_foreign)
         assert isinstance(ls1.field.field, self_foreign)
         assert ls1.field.field is ls1
@@ -414,17 +414,17 @@ class TestModel:
         assert ls1.field.field.field.field is ls1
 
     def test_eq(self):
-        litetestmodel.new(id='<irrelevant>')
-        r1 = litetestmodel(id='<irrelevant>')
-        r2 = litetestmodel(id='<irrelevant>')
+        litetestmodel.new(id='A')
+        r1 = litetestmodel(id='A')
+        r2 = litetestmodel(id='A')
         assert r1 != 'something'
         assert r1 == r2
 
     def test_count(self):
         assert litetestmodel.count() == 0
-        new = litetestmodel.new(id='<irrelevant 1>')
+        new = litetestmodel.new(id='A')
         assert litetestmodel.count() == 1
-        new = litetestmodel.new(id='<irrelevant 2>')
+        new = litetestmodel.new(id='B')
         assert litetestmodel.count() == 2
 
     def test_get_by_pks(self):
@@ -467,51 +467,51 @@ class TestModel:
         assert lst == instances[2:3]
 
     def test_delete_plain(self):
-        new = fulltestmodel.new(id='<irrelevant 1>', unique='<string>',
+        new = fulltestmodel.new(id='A', unique='<string>',
                                 required='')
         del new.required
         assert new.required is None
         del new.unique
         assert new.unique is None
-        reloaded = fulltestmodel(id='<irrelevant>')
+        reloaded = fulltestmodel(id='A')
         assert reloaded.required is None
         assert reloaded.unique is None
         # Doesn't raise
-        fulltestmodel.new(id='<irrelevant 2>', unique='<string>',
+        fulltestmodel.new(id='B', unique='<string>',
                           required='')
 
     def test_delete_standalone(self):
-        new = litetestmodel.new(id='<string>')
+        new = litetestmodel.new(id='A')
         new.standalone.sadd(b'1')
         assert new.standalone.smembers() == {b'1'}
         del new.standalone
         assert new.standalone.smembers() == set()
 
     def test_delete(self):
-        new = litetestmodel.new(id='<string>')
+        new = litetestmodel.new(id='A')
         new.standalone.sadd(b'1')
         new.delete()
         assert not new.good()
         assert new.standalone.smembers() == set()
-        reloaded = litetestmodel(id='<string>')
+        reloaded = litetestmodel(id='A')
         assert not new.good()
 
     def test_new_foreign(self):
         # Model.new(field=X) where X is an instance of some
         # foreign type must return an instance of Model with
         # 'field' set to X
-        fa = foreign_a.new(id='<irrelevant 1>', b_field='<irrelevant 2>')
-        fb = foreign_b.new(id='<irrelevant 2>', a_field='<irrelevant 1>')
-        new_a = foreign_a.new(id='<irrelevant 3>', b_field=fb)
+        fa = foreign_a.new(id='A', b_field='B')
+        fb = foreign_b.new(id='B', a_field='A')
+        new_a = foreign_a.new(id='C', b_field=fb)
         assert new_a.b_field is fb
-        reloaded = foreign_a(id='<irrelevant 3>')
+        reloaded = foreign_a(id='C')
         assert reloaded.b_field == fb
 
 
 class TestEncoding:
 
     def test_decode_responses(self):
-        ka = {'id': '<irrelevant>', 'str': '¿Cómo está usted?',
+        ka = {'id': 'A', 'str': '¿Cómo está usted?',
               'bytes': b'\x00 and some more chars',
               'plain_set': {1, 2, 3, 'a', b'b', ('c',)}}
         new = decodetestmodel.new(**ka)
@@ -527,7 +527,7 @@ class TestEncoding:
         assert ka['bytes'] != reloaded.bytes
 
     def test_no_decode_responses(self):
-        ka = {'id': '<irrelevant>', 'str': '¿Cómo está usted?',
+        ka = {'id': 'A', 'str': '¿Cómo está usted?',
               'bytes': b'\x00 and some more chars',
               'plain_set': {1, 2, 3, 'a', b'b', ('c',)}}
         new = nodecodetestmodel.new(**ka)
