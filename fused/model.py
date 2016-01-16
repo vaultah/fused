@@ -276,6 +276,7 @@ class Model(metaclass=MetaModel):
 
     @classmethod
     def instances(cls, it):
+        # TODO: Optimize this using pipelines?
         ''' Return a generator object converting iterable `it` on the fly and 
             yielding instances of `cls` '''
         yield from (cls.instance(x) for x in it)
@@ -405,6 +406,9 @@ class Model(metaclass=MetaModel):
             raw = pipe.execute()
 
         yield from cls.instances(cls._process_raw(r) for r in raw)
+
+    def as_dict(self):
+        return self.data
         
     def __enter__(self):
         if not self.__context_depth__:
