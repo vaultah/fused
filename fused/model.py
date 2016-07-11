@@ -70,10 +70,11 @@ class MetaModel(ABCMeta):
             
             for s in scripts:
                 cls._scripts[s] = cls.__redis__.register_script(utils.SCRIPTS[s])
+                
             # Get some information from the connection instance
             # We need encoding and/or decode_responses to handle conversion
             _params = cls.redis.connection_pool.connection_kwargs
-            cls._redis_encoding = _params.get('encoding')
+            cls._encoding = _params.get('encoding', 'utf-8')
 
         return cls
                     
@@ -214,13 +215,13 @@ class Model(metaclass=MetaModel):
         
     @classmethod
     def encode(cls, ob, value):
-        ''' Equivalent to ob.to_redis(value, cls._redis_encoding) but shorter '''
-        return ob.to_redis(value, cls._redis_encoding)
+        ''' Equivalent to ob.to_redis(value, cls._encoding) but shorter '''
+        return ob.to_redis(value, cls._encoding)
 
     @classmethod
     def decode(cls, ob, value):
-        ''' Equivalent to ob.from_redis(value, cls._redis_encoding) but shorter '''
-        return ob.from_redis(value, cls._redis_encoding)
+        ''' Equivalent to ob.from_redis(value, cls._encoding) but shorter '''
+        return ob.from_redis(value, cls._encoding)
 
     @classmethod
     def get_foreign(cls, fm=None):
