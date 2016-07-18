@@ -20,18 +20,18 @@ class commandproxy:
 
     def __getattr__(self, attr):
         try:
-            return self.get_instance(attr)
+            return self._get_instance(attr)
         except KeyError:
             rv = callproxy(self.key, self.model, attr)
-            self.set_instance(attr, rv)
+            self._set_instance(attr, rv)
             return rv
 
     def __repr__(self):
         return '<command proxy for {!r} at {:#x}>'.format(
                     self.key, id(self))
 
-    def set_instance(self, attr, new):
+    def _set_instance(self, attr, new):
         self._cache[attr] = new
 
-    def get_instance(self, attr):
+    def _get_instance(self, attr):
         return self._cache[attr]

@@ -1,19 +1,9 @@
-from . import exceptions, utils, proxies, auto
-from abc import ABCMeta
+from . import exceptions, utils, proxies
+import abc
 import ast
 
 
-class MetaField(ABCMeta):
-
-    def __new__(mcs, field_name, bases, attrs):
-        attrs.setdefault('type', auto.autotype)
-        attrs.setdefault('to_redis', attrs['type'].to_redis)
-        attrs.setdefault('from_redis', attrs['type'].from_redis)
-        cls = super().__new__(mcs, field_name, bases, attrs)
-        return cls
-
-
-class Field(metaclass=MetaField):
+class Field(metaclass=abc.ABCMeta):
 
     def __init__(self, *, unique=False, standalone=False, auto=False,
                           required=False):
@@ -30,21 +20,23 @@ class Field(metaclass=MetaField):
         if model is None:
             raise TypeError('Field.__get__ requires instance of '
                             '{!r}'.format(self.model_name))
+        if not model.good():
+            return None
+
         if not self.standalone:
-            # Return an instance of the corresponding Python type
             return model.data.get(self.name)
 
         try:
-            return self.get_instance(model)
+            return self._get_instance(model)
         except KeyError as e:
             key = model.qualified(self.name, pk=model.primary_key)
             # TODO: Optimize auto fields by looking at model.data? No.
             if self.auto:
-                rv = self.type(key, model)
-                rv.field = self 
+                # Return an instance of the corresponding Python type
+                rv = self.fetch(key, model.__redis__, model.encoding)
             else:
                 rv = proxies.commandproxy(key, model)
-            self.set_instance(model, rv)
+            self._set_instance(model, rv)
             return rv
 
     def __set__(self, model, value):
@@ -54,16 +46,14 @@ class Field(metaclass=MetaField):
         if self.unique:
             model._update_unique({self.name: value})
         elif self.standalone:
-            if not isinstance(value, self.type):
-                # Update the DB
-                key = model.qualified(self.name, pk=model.primary_key)
-                self.type.delete(key, model.__redis__)
-                self.type.save(key, model.__redis__, value)
-                new = self.type(key, model, value)
-            else:
-                # Simply update the cache
-                new = value
-            self.set_instance(model, new)
+            if not self.auto:
+                raise AttributeError("Can't assign to proxy fields")
+            key = model.qualified(self.name, pk=model.primary_key)
+            # Containers can't be reliably updated using just one command
+            with model.get_pipeline() as pipe:
+                self.save(key, pipe, value)
+                pipe.execute()
+            self._set_instance(model, value) # TODO copy?
         else:
             model._update_plain({self.name: value})
 
@@ -73,59 +63,132 @@ class Field(metaclass=MetaField):
                             '{!r}'.format(self.model_name))
         if self.unique:
             model._delete_unique([self.name])
-            model.data.pop(self.name)
+            model.data.pop(self.name, None)
         elif not self.standalone:
             model._delete_plain([self.name])
-            model.data.pop(self.name)
+            model.data.pop(self.name, None)
         else:
             key = model.qualified(self.name, pk=model.primary_key)
-            self.type.delete(key, model.__redis__)
-            # TODO: Handle auto fields
+            # TODO: Move this to a separate method?
+            model.redis.delete(key)
+            # TODO: Handle auto fields. The fuck you mean, past me?
+            model._field_cache.pop(self.name, None)
 
-    def set_instance(self, model, new):
+    def _set_instance(self, model, new):
         model._field_cache[self.name] = new
 
-    def get_instance(self, model):
+    def _get_instance(self, model):
         return model._field_cache[self.name]
 
 
 class String(Field):
-    type = auto.auto_str
+
+    @staticmethod
+    def serialize(value, encoding=None):
+        if encoding is not None:
+            return str(value).encode(encoding)
+        else:
+            return str(value)
+    
+    @staticmethod
+    def deserialize(value, encoding=None):
+        if isinstance(value, bytes) and encoding is not None:
+            return value.decode(encoding)
+        else:
+            return value
+
+    @staticmethod
+    def fetch(cls, key, connection, encoding):
+        # Fetches the data immediately
+        return String.deserialize(connection.get(key), encoding)
+
+    @staticmethod
+    def save(key, connection, value):
+        # Fetches the data immediately
+        return connection.set(key, value)
 
 
 class List(Field):
-    type = auto.auto_list
+
+    serialize = staticmethod(String.serialize)
+
+    @staticmethod
+    def deserialize(value, encoding=None):
+        return ast.literal_eval(String.deserialize(value, encoding))
+
+    @staticmethod
+    def fetch(key, connection, encoding):
+        # Fetches the data immediately
+        res = connection.lrange(key, 0, -1)
+        return [String.deserialize(x, encoding) for x in res]
+
+    @staticmethod
+    def save(key, connection, value):
+        connection.delete(key)
+        connection.rpush(key, *value)
 
 
 class Set(Field):
-    type = auto.auto_set
+
+    serialize = staticmethod(String.serialize)
+
+    @staticmethod
+    def deserialize(value, encoding=None):
+        return ast.literal_eval(String.deserialize(value, encoding))
+
+    @staticmethod
+    def fetch(key, connection, encoding): 
+        # Fetches the data immediately
+        res = connection.smembers(key)
+        return {String.deserialize(x, encoding) for x in res}
+
+    @staticmethod
+    def save(key, connection, value):
+        connection.delete(key)
+        connection.sadd(key, *value)
 
 
 class Bytes(Field):
 
-    # There's no auto.auto_bytes... yet?
-
-    @classmethod
-    def from_redis(cls, value, encoding=None):
-        # Return value unchanged
-        return value
-
-    @classmethod
-    def to_redis(cls, value, encoding=None):
+    @staticmethod
+    def deserialize(value, encoding=None):
         # Return the value unchanged
         return value
 
+    @staticmethod
+    def serialize(value, encoding=None):
+        # Return the value unchanged
+        return value
+
+    fetch = staticmethod(String.fetch)
+    save = staticmethod(String.save)
+
 
 class Integer(Field):
-    type = auto.auto_int
 
+    serialize = staticmethod(String.serialize)
+
+    @staticmethod
+    def deserialize(value, encoding=None):
+        return int(value)
+
+    @staticmethod
+    def fetch(key, connection, encoding):
+        return Integer.deserialize(connection.get(key) or 0)
+
+    save = staticmethod(String.save)
+
+
+# TODO
 class SortedSet(Field):
-    type = auto.auto_sortedset
+    pass
+
 
 class Hash(Field):
-    type = auto.auto_hash
+    pass
 
-# TODO: Add Integer (AI) field
+
+# TODO: Add Integer (AI) field?
 class PrimaryKey(String):
     pass
 
@@ -135,9 +198,3 @@ class Foreign(String):
     def __init__(self, foreign, **ka):
         self.foreign = foreign
         super().__init__(**ka)
-
-
-__all__ = []
-for name, var in list(globals().items()):
-    if isinstance(var, type) and issubclass(var, Field):
-        __all__.append(name)

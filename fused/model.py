@@ -72,9 +72,9 @@ class MetaModel(ABCMeta):
                 cls._scripts[s] = cls.__redis__.register_script(utils.SCRIPTS[s])
                 
             # Get some information from the connection instance
-            # We need encoding and/or decode_responses to handle conversion
+            # We need to know the encoding to deserialize some fields
             _params = cls.redis.connection_pool.connection_kwargs
-            cls._encoding = _params.get('encoding', 'utf-8')
+            cls.encoding = _params.get('encoding', 'utf-8')
 
         return cls
                     
@@ -104,8 +104,7 @@ class Model(metaclass=MetaModel):
 
             self.data.update(self._process_raw(raw))
 
-        self.data.update(data or {})
-        self._prepare()
+        self._prepare(data or {})
 
     @classmethod
     def _get_raw_pk_by_unique(cls, field, value, connection=None):
@@ -119,44 +118,63 @@ class Model(metaclass=MetaModel):
     def _get_raw_by_pk(cls, pk, connection=None):
         ''' Retrieve the HASH stored at cls.qualified(pk=pk).
             Exactly one action to make it usable with pipes. '''
-        # TIL: Pipelines may be False in boolean context.
+        # Pipelines may be False in boolean context.
         conn = connection if connection is not None else cls.__redis__
-        return conn.hgetall(cls.qualified(pk=cls.decode(PrimaryKey, pk)))
+        key = cls.qualified(pk=cls.deserialize(PrimaryKey, pk))
+        return conn.hgetall(key)
 
     @classmethod
     def _get_raw_by_unique(cls, field, value):
         ''' Get the primary key by one of the unique fields and return the 
             result of passing it to _get_raw_by_pk '''
         pk = cls._get_raw_pk_by_unique(field, value)
-        return cls._get_raw_by_pk(cls.decode(PrimaryKey, pk))
+        return cls._get_raw_by_pk(cls.deserialize(PrimaryKey, pk))
 
     @classmethod
     def _process_raw(cls, raw):
         ''' Iterate over raw mapping received t to _get_raw_by_pk, convert
-            each value using appropriate from_redis conversion, and
+            each value using appropriate deserialize conversion, and
             return the result '''
         rv = {}
         for key, value in raw.items():
-            decoded = cls.decode(String, key)
+            decoded = cls.deserialize(String, key)
             ob = cls._plain[decoded]
-            rv[decoded] = cls.decode(ob, value)
+            rv[decoded] = cls.deserialize(ob, value)
         return rv
 
-    def _prepare(self):
+    def _prepare(self, data):
         ''' Initialize all 'foreign' fields (create instances of corresponding
-            classes) '''
+            classes) and update `self.data` '''
+        original = self.data.copy()
+        self.data.update(data)
+
         for field, ob in self._foreign.items():
-            if field not in self.data:
+            if field not in data and field not in original:
                 continue
+            # May either be a string or a type
             if isinstance(ob.foreign, type):
                 ft = ob.foreign
             else:
                 ft = _registry[ob.foreign]
-            fv = self.data[field]
+
+            if field in data:
+                if isinstance(data[field], ft):
+                    fv = data[field]
+                    original.setdefault(field, fv.primary_key)
+                else:
+                    fv = original[field] = data[field]
+            else:
+                fv = original[field]
+
             if not isinstance(fv, ft):
                 ff = ft.get_foreign(type(self))
+                # Insert `self` in the `data` dictionary of the foreign object, then
+                # put the object in `self.data`
                 self.data[field] = ft(data=dict.fromkeys(ff, self), primary_key=fv)
-
+            elif fv.primary_key != original[field]:
+                # Ignore `fv` if the primary key of `fv` doesn't match that from the DB
+                # Most likely `fv` came from the `_prepare` method of another class
+                self.data[field] = ft(primary_key=original[field])
 
     @classmethod
     def _write_unique(cls, data, pk):
@@ -196,7 +214,7 @@ class Model(metaclass=MetaModel):
     def _update_plain(self, new_data):
         save = new_data.copy()
         for k, v in save.items():
-            save[k] = self.encode(self._plain[k], v)
+            save[k] = self.serialize(self._plain[k], v)
         self.redis.hmset(self.qualified(pk=self.primary_key), save)
         self.data.update(new_data)
 
@@ -214,19 +232,19 @@ class Model(metaclass=MetaModel):
         self._delete_plain(fields)
         
     @classmethod
-    def encode(cls, ob, value):
-        ''' Equivalent to ob.to_redis(value, cls._encoding) but shorter '''
-        return ob.to_redis(value, cls._encoding)
+    def serialize(cls, ob, value):
+        ''' Equivalent to ob.serialize(value, cls.encoding) but shorter '''
+        return ob.serialize(value, cls.encoding)
 
     @classmethod
-    def decode(cls, ob, value):
-        ''' Equivalent to ob.from_redis(value, cls._encoding) but shorter '''
-        return ob.from_redis(value, cls._encoding)
+    def deserialize(cls, ob, value):
+        ''' Equivalent to ob.deserialize(value, cls.encoding) but shorter '''
+        return ob.deserialize(value, cls.encoding)
 
     @classmethod
     def get_foreign(cls, fm=None):
-        ''' Obtain a list of 'foreign' fields with name equal to fm.__name__ if
-            fm is a type and fm otherwise '''
+        ''' Obtain a list of names of 'foreign' fields (defined for `cls`)
+            with name equal to fm.__name__ if fm is a type and fm otherwise '''
         if fm is None:
             return list(cls._foreign)
         if isinstance(fm, type):
@@ -253,7 +271,7 @@ class Model(metaclass=MetaModel):
         return self.data[self._primary_key]
 
     def good(self):
-        return bool(self.data)
+        return self._primary_key in self.data
 
     @classmethod
     def qualified(cls, *args, pk=None):
@@ -327,8 +345,7 @@ class Model(metaclass=MetaModel):
         with cls.get_pipeline() as pipe:
             for field in cls._standalone.keys() & ka.keys():
                 value, ob = ka[field], cls._standalone[field]
-                print(ob)
-                ob.type.save(cls.qualified(field, pk=pk), pipe, value)
+                ob.save(cls.qualified(field, pk=pk), pipe, value)
                 
             pipe.execute()
 
@@ -336,7 +353,7 @@ class Model(metaclass=MetaModel):
         save = {cls._primary_key: pk}
         for field in cls._plain.keys() & ka.keys():
             value = ka[field]
-            save[field] = cls.encode(cls._plain[field], value)
+            save[field] = cls.serialize(cls._plain[field], value)
 
         cls.__redis__.hmset(main_key, save)
 
@@ -349,7 +366,7 @@ class Model(metaclass=MetaModel):
 
         with self:
             for name, ob in self._standalone.items():
-                ob.type.delete(self.qualified(name, pk=self.primary_key), self.redis)
+                delattr(self, name)
 
             self._delete_unique(self._unique_fields)
             self._remove_pk(self.primary_key, connection=self.redis)
@@ -388,7 +405,7 @@ class Model(metaclass=MetaModel):
             if stop is None:
                 stop = '+inf'
 
-            pks = [cls.decode(PrimaryKey, x) for x in
+            pks = [cls.deserialize(PrimaryKey, x) for x in
                    cls.__redis__.zrangebyscore(key, start, stop, start=offset,
                                                num=limit)]
 
@@ -399,7 +416,7 @@ class Model(metaclass=MetaModel):
             with cls.get_pipeline() as pipe:
                 for v in values:
                     cls._get_raw_pk_by_unique(field, v, pipe)
-                it = (cls.decode(PrimaryKey, x) for x in pipe.execute())
+                it = (cls.deserialize(PrimaryKey, x) for x in pipe.execute())
 
         with cls.get_pipeline() as pipe:
             for x in it:
