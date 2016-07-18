@@ -220,8 +220,8 @@ class TestModel:
         fb = foreign_b.new(id='B', a_field='A') 
         assert not fa.b_field.good()
         assert fb.good()
-        # TODO: Not sure if this is the desired behaviour
-        assert fa.b_field.a_field == fa
+        # TODO?: Not to sure if this is the desired behaviour
+        assert fa.b_field.a_field is None
 
         new_a = foreign_a.new(id='C', b_field=fb)
         # Ensure it wasn't reloaded
