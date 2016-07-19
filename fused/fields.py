@@ -72,6 +72,7 @@ class Field(metaclass=abc.ABCMeta):
             # TODO: Move this to a separate method?
             model.redis.delete(key)
             # TODO: Handle auto fields. The fuck you mean, past me?
+            # TODO: replace with a default to avoid another DB request?
             model._field_cache.pop(self.name, None)
 
     def _set_instance(self, model, new):
@@ -98,9 +99,9 @@ class String(Field):
             return value
 
     @staticmethod
-    def fetch(cls, key, connection, encoding):
+    def fetch(key, connection, encoding):
         # Fetches the data immediately
-        return String.deserialize(connection.get(key), encoding)
+        return String.deserialize(connection.get(key) or '', encoding)
 
     @staticmethod
     def save(key, connection, value):

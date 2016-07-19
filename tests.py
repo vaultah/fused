@@ -71,14 +71,18 @@ class self_foreign(model.Model):
 
 class TestFields:
 
-    # def test_types(self):
-    #     tm = litetestmodel.new(id='A')
-    #     # Proxy fields
-    #     assert type(tm.standalone) is proxies.commandproxy
-    #     assert type(tm.standalone.get) is proxies.callproxy
-    #     # Auto fields
-    #     assert isinstance(tm.set, auto.autotype)
-    #     assert isinstance(tm.set, auto.autotype)
+    def test_types(self):
+        tm = litetestmodel.new(id='A')
+        # Primary key
+        assert type(tm.id) is str
+        # Proxy fields
+        assert type(tm.standalone) is proxies.commandproxy
+        assert type(tm.standalone.get) is proxies.callproxy
+        # Auto fields
+        assert tm.set == set()
+        assert tm.list == list()
+        assert tm.int == int()
+        assert tm.str == str()
 
     @pytest.mark.parametrize('command,args,inverse,invargs', [
         ('HSET', (b'<string>', 1), 'HKEYS', ()),
@@ -92,42 +96,30 @@ class TestFields:
         iproxy = getattr(tm.standalone, inverse.lower())
         assert all(x == y for x, y in zip(args, iproxy(*invargs)))
 
+    @pytest.mark.parametrize('field,value', [
+        ('set', {'1', '2', '3'}),
+        ('list', ['1', '2', '3']),
+        ('int', 123),
+        ('str', '123')
+    ])
+    def test_auto_setget(self, field, value):
+        tm = litetestmodel.new(id='A')
+        setattr(tm, field, value)
+        assert getattr(tm, field) == value
 
-# TODO: Test augmented assignment operators as well?
-# TODO: They're implemented using tested methods, I see no point in
-# TODO: testing them specifically.
 
+    @pytest.mark.parametrize('field,value', [
+        ('set', {'1', '2', '3'}),
+        ('list', ['1', '2', '3']),
+        ('int', 123),
+        ('str', '123')
+    ])
+    def test_auto_delete(self, field, value):
+        tm = litetestmodel.new(id='A')
+        setattr(tm, field, value)
+        delattr(tm, field)
+        assert getattr(tm, field) == type(value)()
 
-class TestSet:
-
-    def test_set(self):
-        # tm = litetestmodel.new(id='A')
-        # new = {b'1', b'2', b'3'}
-        # assert tm.set == set()
-        # tm.set = new
-        # assert tm.set == new
-        # assert tm.set.smembers() == new
-        pass
-
-class TestList:
-
-    pass
-
-class TestInteger:
-
-    # def test_set(self):
-    #     tm = litetestmodel.new(id='A')
-    #     assert tm.int == 0
-    #     tm.int = 43
-    #     assert tm.int == 43
-
-    # def test_incr(self):
-    #     tm = litetestmodel.new(id='A')
-    #     tm.int += 41
-    #     assert tm.int == 41
-    #     tm.int += 2
-    #     assert tm.int == 43
-    pass
 
 class TestModel:
 
