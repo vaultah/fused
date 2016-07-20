@@ -4,6 +4,7 @@ Lightweight ORM-ish convenience wrapper around redis-py.
 
 [![Build Status](https://travis-ci.org/vaultah/fused.svg?branch=master)](https://travis-ci.org/vaultah/fused)
 
+
 **α**
 
 Still pretty raw.
@@ -20,5 +21,5 @@ Each ***standalone*** field occupies a separate key. A standalone field can eith
 
 Fused decodes all strings coming from Redis (including individual elements/values/keys of auto fields) except for
 
- - values of `Bytes` fields, because this would defeat the purpose of `Bytes` fields
+ - values of `Bytes` fields, because that would defeat the purpose of `Bytes` fields
  - strings returned by methods of proxy objects, because it would be hard, and because proxy fields simply return what redis-py returns

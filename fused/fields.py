@@ -152,17 +152,23 @@ class Set(Field):
 class Bytes(Field):
 
     @staticmethod
+    def serialize(value, encoding=None):
+        # Return the value unchanged
+        return value
+
+    @staticmethod
     def deserialize(value, encoding=None):
         # Return the value unchanged
         return value
 
     @staticmethod
-    def serialize(value, encoding=None):
-        # Return the value unchanged
-        return value
+    def fetch(key, connection, encoding):
+        return connection.get(key) or b''
 
-    fetch = staticmethod(String.fetch)
-    save = staticmethod(String.save)
+    @staticmethod
+    def save(key, connection, value):
+        connection.set(key, value)
+
 
 
 class Integer(Field):
@@ -180,13 +186,47 @@ class Integer(Field):
     save = staticmethod(String.save)
 
 
-# TODO
-class SortedSet(Field):
-    pass
-
-
 class Hash(Field):
-    pass
+
+    serialize = staticmethod(String.serialize)
+
+    @staticmethod
+    def deserialize(value, encoding=None):
+        return ast.literal_eval(String.deserialize(value, encoding))
+
+    @staticmethod
+    def fetch(key, connection, encoding):
+        res = connection.hgetall(key)
+        dm = lambda x: String.deserialize(x, encoding)
+        return {dm(k): dm(v) for k, v in res.items()}
+
+    @staticmethod
+    def save(key, connection, value):
+        if not isinstance(value, dict):
+            value = dict(value)
+        connection.delete(key)
+        connection.hmset(key, value)
+
+
+class SortedSet(Field):
+
+    serialize = staticmethod(String.deserialize)
+
+    @staticmethod
+    def deserialize(value, encoding=None):
+        return ast.literal_eval(String.deserialize(value, encoding))
+
+    @staticmethod
+    def fetch(key, connection, encoding):
+        res = connection.zrange(key, start=0, end=-1, withscores=True)
+        return {String.deserialize(k, encoding): v for k, v in res}
+
+    @staticmethod
+    def save(key, connection, value):
+        if not isinstance(value, dict):
+            value = dict(value)
+        connection.delete(key)
+        connection.zadd(key, **value)
 
 
 # TODO: Add Integer (AI) field?

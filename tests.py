@@ -21,6 +21,20 @@ class litetestmodel(model.Model):
     list = fields.List(auto=True)
     int = fields.Integer(auto=True)
     str = fields.String(auto=True)
+    bytes = fields.Bytes(auto=True)
+    sortedset = fields.SortedSet(auto=True)
+    hash = fields.Hash(auto=True)
+
+class automodel(model.Model):
+    redis = TEST_CONNECTION
+    id = fields.PrimaryKey()
+    set = fields.Set(auto=True)
+    list = fields.List(auto=True)
+    int = fields.Integer(auto=True)
+    str = fields.String(auto=True)
+    bytes = fields.Bytes(auto=True)
+    sortedset = fields.SortedSet(auto=True)
+    hash = fields.Hash(auto=True)
 
 class fulltestmodel(model.Model):
     redis = TEST_CONNECTION
@@ -100,22 +114,27 @@ class TestFields:
         ('set', {'1', '2', '3'}),
         ('list', ['1', '2', '3']),
         ('int', 123),
-        ('str', '123')
+        ('str', '123'),
+        ('bytes', b'123'),
+        ('sortedset', {'a': 1, 'b': 2, 'c': 3}),
+        ('hash', {'a': 'b', 'b': 'c', 'c': 'd'})
     ])
     def test_auto_setget(self, field, value):
-        tm = litetestmodel.new(id='A')
+        tm = automodel.new(id='A')
         setattr(tm, field, value)
         assert getattr(tm, field) == value
-
 
     @pytest.mark.parametrize('field,value', [
         ('set', {'1', '2', '3'}),
         ('list', ['1', '2', '3']),
         ('int', 123),
-        ('str', '123')
+        ('str', '123'),
+        ('bytes', b'123'),
+        ('sortedset', {'a': 1, 'b': 2, 'c': 3}),
+        ('hash', {'a': 'b', 'b': 'c', 'c': 'd'})
     ])
     def test_auto_delete(self, field, value):
-        tm = litetestmodel.new(id='A')
+        tm = automodel.new(id='A')
         setattr(tm, field, value)
         delattr(tm, field)
         assert getattr(tm, field) == type(value)()
