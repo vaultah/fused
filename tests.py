@@ -13,17 +13,11 @@ def flushdb():
     TEST_CONNECTION.flushdb()
 
 
-class litetestmodel(model.Model):
+class lightmodel(model.Model):
     redis = TEST_CONNECTION
     id = fields.PrimaryKey()
-    standalone = fields.Set(standalone=True)
-    set = fields.Set(auto=True)
-    list = fields.List(auto=True)
-    int = fields.Integer(auto=True)
-    str = fields.String(auto=True)
-    bytes = fields.Bytes(auto=True)
-    sortedset = fields.SortedSet(auto=True)
-    hash = fields.Hash(auto=True)
+    proxy = fields.Set(standalone=True)
+
 
 class automodel(model.Model):
     redis = TEST_CONNECTION
@@ -35,6 +29,7 @@ class automodel(model.Model):
     bytes = fields.Bytes(auto=True)
     sortedset = fields.SortedSet(auto=True)
     hash = fields.Hash(auto=True)
+
 
 class fulltestmodel(model.Model):
     redis = TEST_CONNECTION
@@ -86,17 +81,12 @@ class self_foreign(model.Model):
 class TestFields:
 
     def test_types(self):
-        tm = litetestmodel.new(id='A')
+        tm = lightmodel.new(id='A')
         # Primary key
         assert type(tm.id) is str
         # Proxy fields
-        assert type(tm.standalone) is proxies.commandproxy
-        assert type(tm.standalone.get) is proxies.callproxy
-        # Auto fields
-        assert tm.set == set()
-        assert tm.list == list()
-        assert tm.int == int()
-        assert tm.str == str()
+        assert type(tm.proxy) is proxies.commandproxy
+        assert type(tm.proxy.get) is proxies.callproxy
 
     @pytest.mark.parametrize('command,args,inverse,invargs', [
         ('HSET', (b'<string>', 1), 'HKEYS', ()),
@@ -105,9 +95,9 @@ class TestFields:
         ('LPUSH', (b'<string>',), 'LRANGE', (0, -1))
     ])
     def test_proxy(self, command, args, inverse, invargs):
-        tm = litetestmodel.new(id='A')
-        proxy = getattr(tm.standalone, command.lower())
-        iproxy = getattr(tm.standalone, inverse.lower())
+        tm = lightmodel.new(id='A')
+        proxy = getattr(tm.proxy, command.lower())
+        iproxy = getattr(tm.proxy, inverse.lower())
         assert all(x == y for x, y in zip(args, iproxy(*invargs)))
 
     @pytest.mark.parametrize('field,value', [
@@ -121,6 +111,7 @@ class TestFields:
     ])
     def test_auto_setget(self, field, value):
         tm = automodel.new(id='A')
+        assert getattr(tm, field) == type(value)()
         setattr(tm, field, value)
         assert getattr(tm, field) == value
 
@@ -140,7 +131,7 @@ class TestFields:
         assert getattr(tm, field) == type(value)()
 
 
-class TestModel:
+class TestModelCreation:
 
     def test_new_plain(self):
         # Plain fields
@@ -164,41 +155,30 @@ class TestModel:
             fulltestmodel.new(**ka)
 
     def test_new_pk_uniqueness(self):
-        new = litetestmodel.new(id='A')
+        new = lightmodel.new(id='A')
         with pytest.raises(exceptions.DuplicateEntry):
-            litetestmodel.new(id='A')
+            lightmodel.new(id='A')
 
     def test_new_auto(self):
         val = {'1', '2', '3'}
-        ka = {'id': 'A', 'unique': '<string>', 'required': '', 'auto_set': val}
-        new = fulltestmodel.new(**ka)
-        assert new.auto_set == val 
+        new = automodel.new(id='A', set=val)
+        assert new.set == val 
         val = val.copy()
         val.add('4')
-        new.auto_set = val
-        assert new.auto_set == val
-        reloaded = fulltestmodel(primary_key='A')
-        assert reloaded.auto_set == val
+        new.set = val
+        assert new.set == val
+        reloaded = automodel(primary_key='A')
+        assert reloaded.set == val
 
     def test_new_proxy(self):
         val = {b'1', b'2', b'3'}
-        ka = {'id': 'A', 'unique': '<string>', 'required': '', 'proxy_set': val}
-        new = fulltestmodel.new(**ka)
-        assert isinstance(new.proxy_set, proxies.commandproxy)
-        assert new.proxy_set.smembers() == val
+        ka = {'id': 'A', 'unique': '<string>', 'required': '', 'proxy': val}
+        new = lightmodel.new(**ka)
+        assert isinstance(new.proxy, proxies.commandproxy)
+        assert new.proxy.smembers() == val
 
-    def test_load(self):
-        ka = {'id': 'A', 'unique': '<string>', 'required': ''}
-        new = fulltestmodel.new(**ka)
-        # By the primary key
-        reloaded = fulltestmodel(id=ka['id'])
-        for k in ka:
-            assert ka[k] == getattr(reloaded, k)
 
-        # By unique field
-        reloaded = fulltestmodel(unique=ka['unique'])
-        for k in ka:
-            assert ka[k] == getattr(reloaded, k)
+class TestModelUpdate:
 
     def test_instant_update_plain(self):
         ka = {'id': 'A', 'unique': '<string>', 'required': ''}
@@ -222,6 +202,28 @@ class TestModel:
 
         with pytest.raises(exceptions.DuplicateEntry):
             new.unique = other.unique
+
+    # TODO: should we test standalone fields?
+
+
+class TestModelLoad:
+    pass # TODO
+
+
+class TestModel:
+
+    def test_load(self):
+        ka = {'id': 'A', 'unique': '<string>', 'required': ''}
+        new = fulltestmodel.new(**ka)
+        # By the primary key
+        reloaded = fulltestmodel(id=ka['id'])
+        for k in ka:
+            assert ka[k] == getattr(reloaded, k)
+
+        # By unique field
+        reloaded = fulltestmodel(unique=ka['unique'])
+        for k in ka:
+            assert ka[k] == getattr(reloaded, k)
 
     def test_new_foreign(self):
         # Model.new(field=X) where X is an instance of some
@@ -265,23 +267,23 @@ class TestModel:
         assert ls1.field.field.field.field is ls1
 
     def test_eq(self):
-        litetestmodel.new(id='A')
-        r1 = litetestmodel(id='A')
-        r2 = litetestmodel(id='A')
+        lightmodel.new(id='A')
+        r1 = lightmodel(id='A')
+        r2 = lightmodel(id='A')
         assert r1 != 'something'
         assert r1 == r2
 
     def test_count(self):
-        assert litetestmodel.count() == 0
-        new = litetestmodel.new(id='A')
-        assert litetestmodel.count() == 1
-        new = litetestmodel.new(id='B')
-        assert litetestmodel.count() == 2
+        assert lightmodel.count() == 0
+        new = lightmodel.new(id='A')
+        assert lightmodel.count() == 1
+        new = lightmodel.new(id='B')
+        assert lightmodel.count() == 2
 
     def test_get_by_pks(self):
-        instances = [litetestmodel.new(id='<primary key {}>'.format(i))
+        instances = [lightmodel.new(id='<primary key {}>'.format(i))
                         for i in range(10)]
-        lst = list(litetestmodel.get(x.primary_key for x in instances))
+        lst = list(lightmodel.get(x.primary_key for x in instances))
         assert len(lst) == 10
         assert all(x == y for x, y in zip(instances, lst))
         
@@ -297,23 +299,23 @@ class TestModel:
 
     def test_get_zrange(self):
         instances = []
-        instances.append(litetestmodel.new(id=(0, '1')))
-        instances.append(litetestmodel.new(id=(2, '2')))
-        instances.append(litetestmodel.new(id=(50, '3')))
-        instances.append(litetestmodel.new(id=('+inf', '4')))
-        lst = list(litetestmodel.get(offset=0, limit=2))
+        instances.append(lightmodel.new(id=(0, '1')))
+        instances.append(lightmodel.new(id=(2, '2')))
+        instances.append(lightmodel.new(id=(50, '3')))
+        instances.append(lightmodel.new(id=('+inf', '4')))
+        lst = list(lightmodel.get(offset=0, limit=2))
         assert len(lst) == 2
         assert lst == instances[:2]
-        lst = list(litetestmodel.get(offset=2, limit=2))
+        lst = list(lightmodel.get(offset=2, limit=2))
         assert len(lst) == 2
         assert lst == instances[2:4]
-        lst = list(litetestmodel.get(start=2, stop=40))
+        lst = list(lightmodel.get(start=2, stop=40))
         assert len(lst) == 1
         assert lst == instances[1:2]
-        lst = list(litetestmodel.get(start=2, stop=50))
+        lst = list(lightmodel.get(start=2, stop=50))
         assert len(lst) == 2
         assert lst == instances[1:3]
-        lst = list(litetestmodel.get(offset=1, start=2, stop=50, limit=10))
+        lst = list(lightmodel.get(offset=1, start=2, stop=50, limit=10))
         assert len(lst) == 1
         assert lst == instances[2:3]
 
@@ -330,43 +332,35 @@ class TestModel:
         fulltestmodel.new(id='B', unique='<string>', required='')
 
     def test_delete_standalone(self):
-        new = litetestmodel.new(id='A')
-        new.standalone.sadd(b'1')
-        assert new.standalone.smembers() == {b'1'}
-        del new.standalone
-        assert new.standalone.smembers() == set()
-
-    def test_delete_auto(self):
-        new = litetestmodel.new(id='A')
-        assert new.set == set()
-        new.set = {1, 2, 3}
-        assert len(new.set) == 3
-        del new.set
-        assert new.set == set()     
+        new = lightmodel.new(id='A')
+        new.proxy.sadd(b'1')
+        assert new.proxy.smembers() == {b'1'}
+        del new.proxy
+        assert new.proxy.smembers() == set()
 
     def test_delete(self):
-        assert litetestmodel.count() == 0
-        new = litetestmodel.new(id='A')
-        assert litetestmodel.count() == 1
-        new.standalone.sadd(b'1')
+        assert lightmodel.count() == 0
+        new = lightmodel.new(id='A')
+        assert lightmodel.count() == 1
+        new.proxy.sadd(b'1')
         new.set = {1, 2, 3}
-        assert isinstance(new.standalone, proxies.commandproxy)
+        assert isinstance(new.proxy, proxies.commandproxy)
         assert isinstance(new.set, set)
         new.delete()
-        assert litetestmodel.count() == 0
+        assert lightmodel.count() == 0
         assert not new.good()
-        assert new.standalone is None
-        assert new.set is None
+        assert new.proxy is None
 
-        reloaded = litetestmodel(id='A')
-        assert litetestmodel.count() == 0
+        reloaded = lightmodel(id='A')
+        assert lightmodel.count() == 0
         assert not reloaded.good()
-        assert reloaded.standalone is None
-        assert reloaded.set is None
+        assert reloaded.proxy is None
 
 
 class TestEncoding:
 
+    # TODO: standalone
+ 
     def test_decode_responses(self):
         ka = {'id': 'A', 'str': '¿Cómo está usted?', 
               'bytes': b'\x00 and some more chars',

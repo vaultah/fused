@@ -345,6 +345,7 @@ class Model(metaclass=MetaModel):
         with cls.get_pipeline() as pipe:
             for field in cls._standalone.keys() & ka.keys():
                 value, ob = ka[field], cls._standalone[field]
+                # You can't setattr() to a proxy
                 ob.save(cls.qualified(field, pk=pk), pipe, value)
                 
             pipe.execute()
