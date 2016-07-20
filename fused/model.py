@@ -454,6 +454,4 @@ class Model(metaclass=MetaModel):
         return self.primary_key == other.primary_key
 
     def __hash__(self):
-        # Make it hashable (since I defined the __eq__ method)
-        # The default hash makes more sense to me
-        return super().__hash__()
+        return hash((self.primary_key, type(self)))

@@ -266,12 +266,17 @@ class TestModel:
         # Lel
         assert ls1.field.field.field.field is ls1
 
-    def test_eq(self):
+    def test_eq_hash(self):
         lightmodel.new(id='A')
         r1 = lightmodel(id='A')
         r2 = lightmodel(id='A')
         assert r1 != 'something'
         assert r1 == r2
+        assert hash(r1) == hash(r2)
+        # Different model, same id
+        f = automodel.new(id='A')
+        assert f != r1
+        assert hash(f) != hash(r1)
 
     def test_count(self):
         assert lightmodel.count() == 0
