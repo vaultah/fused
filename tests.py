@@ -78,109 +78,25 @@ class self_foreign(model.Model):
     field = fields.Foreign('self_foreign')
 
 
-class TestFields:
-
-    def test_types(self):
-        tm = lightmodel.new(id='A')
-        # Primary key
-        assert type(tm.id) is str
-        # Proxy fields
-        assert type(tm.proxy) is proxies.commandproxy
-        assert type(tm.proxy.get) is proxies.callproxy
-
-    @pytest.mark.parametrize('command,args,inverse,invargs', [
-        ('HSET', (b'<string>', 1), 'HKEYS', ()),
-        ('SADD', (b'<string>',), 'SMEMBERS', ()),
-        ('ZADD', (b'<string>', 1), 'ZRANGE', (0, -1)),
-        ('LPUSH', (b'<string>',), 'LRANGE', (0, -1))
-    ])
-    def test_proxy(self, command, args, inverse, invargs):
-        tm = lightmodel.new(id='A')
-        proxy = getattr(tm.proxy, command.lower())
-        iproxy = getattr(tm.proxy, inverse.lower())
-        assert all(x == y for x, y in zip(args, iproxy(*invargs)))
-
-    @pytest.mark.parametrize('field,value', [
-        ('set', {'1', '2', '3'}),
-        ('list', ['1', '2', '3']),
-        ('int', 123),
-        ('str', '123'),
-        ('bytes', b'123'),
-        ('sortedset', {'a': 1, 'b': 2, 'c': 3}),
-        ('hash', {'a': 'b', 'b': 'c', 'c': 'd'})
-    ])
-    def test_auto_setget(self, field, value):
-        tm = automodel.new(id='A')
-        assert getattr(tm, field) == type(value)()
-        setattr(tm, field, value)
-        assert getattr(tm, field) == value
-
-    @pytest.mark.parametrize('field,value', [
-        ('set', {'1', '2', '3'}),
-        ('list', ['1', '2', '3']),
-        ('int', 123),
-        ('str', '123'),
-        ('bytes', b'123'),
-        ('sortedset', {'a': 1, 'b': 2, 'c': 3}),
-        ('hash', {'a': 'b', 'b': 'c', 'c': 'd'})
-    ])
-    def test_auto_delete(self, field, value):
-        tm = automodel.new(id='A')
-        setattr(tm, field, value)
-        delattr(tm, field)
-        assert getattr(tm, field) == type(value)()
-
-
-class TestModelCreation:
-
-    def test_new_plain(self):
-        # Plain fields
-        ka = {'id': 'A', 'unique': '<string>', 'required': '',
-              'plain_set': {1, 2, 3}}
-        new = fulltestmodel.new(**ka)
-        for k in ka:
-            assert ka[k] == getattr(new, k)
-
-        # Load and test again
-        reloaded = fulltestmodel(id=ka['id'])
-
-        for k in ka:
-            assert ka[k] == getattr(reloaded, k)
-
-    def test_new_uniqueness(self):
-        ka = {'id': 'A', 'unique': '<string>', 'required': ''}
-        fulltestmodel.new(**ka)
-        ka['id'] = 'B'
-        with pytest.raises(exceptions.DuplicateEntry):
-            fulltestmodel.new(**ka)
-
-    def test_new_pk_uniqueness(self):
-        new = lightmodel.new(id='A')
-        with pytest.raises(exceptions.DuplicateEntry):
-            lightmodel.new(id='A')
-
-    def test_new_auto(self):
-        val = {'1', '2', '3'}
-        new = automodel.new(id='A', set=val)
-        assert new.set == val 
-        val = val.copy()
-        val.add('4')
-        new.set = val
-        assert new.set == val
-        reloaded = automodel(primary_key='A')
-        assert reloaded.set == val
-
-    def test_new_proxy(self):
-        val = {b'1', b'2', b'3'}
-        ka = {'id': 'A', 'unique': '<string>', 'required': '', 'proxy': val}
-        new = lightmodel.new(**ka)
-        assert isinstance(new.proxy, proxies.commandproxy)
-        assert new.proxy.smembers() == val
+# BUG: can use any commands, regardless of the field type
+# @pytest.mark.parametrize('command,args,inverse,invargs', [
+#     ('HSET', (b'<string>', 1), 'HKEYS', ()),
+#     ('SADD', (b'<string>',), 'SMEMBERS', ()),
+#     ('ZADD', (b'<string>', 1), 'ZRANGE', (0, -1)),
+#     ('LPUSH', (b'<string>',), 'LRANGE', (0, -1))
+# ])
+# def test_proxy(self, command, args, inverse, invargs):
+#     tm = lightmodel.new(id='A')
+#     proxy = getattr(tm.proxy, command.lower())
+#     iproxy = getattr(tm.proxy, inverse.lower())
+#     assert all(x == y for x, y in zip(args, iproxy(*invargs)))
 
 
 class TestModelUpdate:
 
-    def test_instant_update_plain(self):
+    # Embedded fields
+
+    def test_set_plain(self):
         ka = {'id': 'A', 'unique': '<string>', 'required': ''}
         new = fulltestmodel.new(**ka)
         new.required = 'new value'
@@ -188,7 +104,20 @@ class TestModelUpdate:
         reloaded = fulltestmodel(id=ka['id'])
         assert reloaded.required == 'new value'
 
-    def test_instant_update_unique(self):
+    def test_delete_plain(self):
+        new = fulltestmodel.new(id='A', unique='<string>', required='')
+        # BUG: is deletion of required fields allowed?
+        del new.required
+        assert new.required is None
+        del new.unique
+        assert new.unique is None
+        reloaded = fulltestmodel(id='A')
+        assert reloaded.required is None
+        assert reloaded.unique is None
+        # Doesn't raise
+        fulltestmodel.new(id='B', unique='<string>', required='')
+
+    def test_set_unique(self):
         ka1 = {'id': 'A', 'unique': '<string 1>', 'required': ''}
         ka2 = {'id': 'B', 'unique': '<string 2>', 'required': ''}
         new = fulltestmodel.new(**ka1)
@@ -203,27 +132,197 @@ class TestModelUpdate:
         with pytest.raises(exceptions.DuplicateEntry):
             new.unique = other.unique
 
-    # TODO: should we test standalone fields?
+    def test_delete_unique(self):
+        ka = {'id': 'A', 'unique': '<string>', 'required': ''}
+        new = fulltestmodel.new(**ka)
+        del new.unique
+
+        ka['id'] = 'B'
+        # Doesn't raise
+        fulltestmodel.new(**ka)
+
+    # Proxies
+
+    def test_proxy(self):
+        new = lightmodel.new(id='A')
+        new.proxy.sadd(b'1')
+        assert new.proxy.smembers() == {b'1'}
+        del new.proxy
+        assert new.proxy.smembers() == set()
+
+    # Auto fields
+
+    @pytest.mark.parametrize('field,value', [
+        ('set', {'1', '2', '3'}),
+        ('list', ['1', '2', '3']),
+        ('int', 123),
+        ('str', '123'),
+        ('bytes', b'123'),
+        ('sortedset', {'a': 1, 'b': 2, 'c': 3}),
+        ('hash', {'a': 'b', 'b': 'c', 'c': 'd'})
+    ])
+    def test_set_auto(self, field, value):
+        tm = automodel.new(id='A')
+        assert getattr(tm, field) == type(value)()
+        setattr(tm, field, value)
+        assert getattr(tm, field) == value
+
+    @pytest.mark.parametrize('field,value', [
+        ('set', {'1', '2', '3'}),
+        ('list', ['1', '2', '3']),
+        ('int', 123),
+        ('str', '123'),
+        ('bytes', b'123'),
+        ('sortedset', {'a': 1, 'b': 2, 'c': 3}),
+        ('hash', {'a': 'b', 'b': 'c', 'c': 'd'})
+    ])
+    def test_delete_auto(self, field, value):
+        tm = automodel.new(id='A')
+        setattr(tm, field, value)
+        delattr(tm, field)
+        assert getattr(tm, field) == type(value)()
+
+
+class TestModelNew:
+
+    def test_plain(self):
+        ka = {'id': 'A', 'unique': '<string>', 'required': '',
+              'plain_set': {1, 2, 3}}
+        new = fulltestmodel.new(**ka)
+        for k in ka:
+            assert ka[k] == getattr(new, k)
+
+    def test_field_uniqueness(self):
+        ka = {'id': 'A', 'unique': '<string>', 'required': ''}
+        fulltestmodel.new(**ka)
+        ka['id'] = 'B'
+        with pytest.raises(exceptions.DuplicateEntry):
+            fulltestmodel.new(**ka)
+
+    def test_pk_uniqueness(self):
+        new = lightmodel.new(id='A')
+        with pytest.raises(exceptions.DuplicateEntry):
+            lightmodel.new(id='A')
+
+    def test_auto(self):
+        val = {'1', '2', '3'}
+        new = automodel.new(id='A', set=val)
+        assert new.set == val 
+        val = val.copy()
+        val.add('4')
+        new.set = val
+        assert new.set == val
+        reloaded = automodel(primary_key='A')
+        assert reloaded.set == val
+
+    def test_proxy(self):
+        val = {b'1', b'2', b'3'}
+        ka = {'id': 'A', 'unique': '<string>', 'required': '', 'proxy': val}
+        new = lightmodel.new(**ka)
+        assert isinstance(new.proxy, proxies.commandproxy)
+        assert new.proxy.smembers() == val
+
+
+class TestModelDelete:
+
+    def test_delete(self):
+        assert lightmodel.count() == 0
+        new = lightmodel.new(id='A')
+        assert lightmodel.count() == 1
+        new.proxy.sadd(b'1')
+        new.set = {1, 2, 3}
+        assert isinstance(new.proxy, proxies.commandproxy)
+        assert isinstance(new.set, set)
+        new.delete()
+        assert lightmodel.count() == 0
+        assert not new.good()
+        assert new.proxy is None
+
+        reloaded = lightmodel(id='A')
+        assert lightmodel.count() == 0
+        assert not reloaded.good()
+        assert reloaded.proxy is None
 
 
 class TestModelLoad:
-    pass # TODO
 
+    def test_load_by_pk(self):
+        new = lightmodel.new(id='A')
+        loaded = lightmodel(id='A')
+        assert loaded.primary_key == loaded.id == 'A'
+        assert loaded == new
 
-class TestModel:
-
-    def test_load(self):
+    def test_load_by_unique(self):
         ka = {'id': 'A', 'unique': '<string>', 'required': ''}
         new = fulltestmodel.new(**ka)
-        # By the primary key
-        reloaded = fulltestmodel(id=ka['id'])
+        loaded = fulltestmodel(unique=ka['unique'])
+        assert new == loaded
         for k in ka:
-            assert ka[k] == getattr(reloaded, k)
+            assert ka[k] == getattr(loaded, k)
 
-        # By unique field
-        reloaded = fulltestmodel(unique=ka['unique'])
-        for k in ka:
-            assert ka[k] == getattr(reloaded, k)
+    def test_get_by_pks(self):
+        instances = [lightmodel.new(id='<primary key {}>'.format(i))
+                        for i in range(10)]
+        lst = list(lightmodel.get(x.primary_key for x in instances))
+        assert len(lst) == 10
+        assert all(x == y for x, y in zip(instances, lst))
+        
+    def test_get_by_unique(self):
+        instances = []
+        for i in range(10):
+            new = fulltestmodel.new(id='<primary key {}>'.format(i),
+                                    required='', unique=str(i))
+            instances.append(new)
+        lst = list(fulltestmodel.get(unique=[str(x) for x in range(10)]))
+        assert len(lst) == 10
+        assert all(x == y for x, y in zip(instances, lst))
+
+    def test_get_zrange(self):
+        instances = []
+        instances.append(lightmodel.new(id=(0, '1')))
+        instances.append(lightmodel.new(id=(2, '2')))
+        instances.append(lightmodel.new(id=(50, '3')))
+        instances.append(lightmodel.new(id=('+inf', '4')))
+        lst = list(lightmodel.get(offset=0, limit=2))
+        assert len(lst) == 2
+        assert lst == instances[:2]
+        lst = list(lightmodel.get(offset=2, limit=2))
+        assert len(lst) == 2
+        assert lst == instances[2:4]
+        lst = list(lightmodel.get(start=2, stop=40))
+        assert len(lst) == 1
+        assert lst == instances[1:2]
+        lst = list(lightmodel.get(start=2, stop=50))
+        assert len(lst) == 2
+        assert lst == instances[1:3]
+        lst = list(lightmodel.get(offset=1, start=2, stop=50, limit=10))
+        assert len(lst) == 1
+        assert lst == instances[2:3]
+
+
+class TestModelMisc:
+
+    def test_eq_hash(self):
+        lightmodel.new(id='A')
+        r1 = lightmodel(id='A')
+        r2 = lightmodel(id='A')
+        assert r1 != 'something'
+        assert r1 == r2
+        assert hash(r1) == hash(r2)
+        # Different model, same id
+        f = automodel.new(id='A')
+        assert f != r1
+        assert hash(f) != hash(r1)
+
+    def test_count(self):
+        assert lightmodel.count() == 0
+        new = lightmodel.new(id='A')
+        assert lightmodel.count() == 1
+        new = lightmodel.new(id='B')
+        assert lightmodel.count() == 2
+
+
+class TestForeign:
 
     def test_new_foreign(self):
         # Model.new(field=X) where X is an instance of some
@@ -265,101 +364,6 @@ class TestModel:
         assert ls1.field.field is ls1
         # Lel
         assert ls1.field.field.field.field is ls1
-
-    def test_eq_hash(self):
-        lightmodel.new(id='A')
-        r1 = lightmodel(id='A')
-        r2 = lightmodel(id='A')
-        assert r1 != 'something'
-        assert r1 == r2
-        assert hash(r1) == hash(r2)
-        # Different model, same id
-        f = automodel.new(id='A')
-        assert f != r1
-        assert hash(f) != hash(r1)
-
-    def test_count(self):
-        assert lightmodel.count() == 0
-        new = lightmodel.new(id='A')
-        assert lightmodel.count() == 1
-        new = lightmodel.new(id='B')
-        assert lightmodel.count() == 2
-
-    def test_get_by_pks(self):
-        instances = [lightmodel.new(id='<primary key {}>'.format(i))
-                        for i in range(10)]
-        lst = list(lightmodel.get(x.primary_key for x in instances))
-        assert len(lst) == 10
-        assert all(x == y for x, y in zip(instances, lst))
-        
-    def test_get_by_unique(self):
-        instances = []
-        for i in range(10):
-            new = fulltestmodel.new(id='<primary key {}>'.format(i),
-                                    required='', unique=str(i))
-            instances.append(new)
-        lst = list(fulltestmodel.get(unique=[str(x) for x in range(10)]))
-        assert len(lst) == 10
-        assert all(x == y for x, y in zip(instances, lst))
-
-    def test_get_zrange(self):
-        instances = []
-        instances.append(lightmodel.new(id=(0, '1')))
-        instances.append(lightmodel.new(id=(2, '2')))
-        instances.append(lightmodel.new(id=(50, '3')))
-        instances.append(lightmodel.new(id=('+inf', '4')))
-        lst = list(lightmodel.get(offset=0, limit=2))
-        assert len(lst) == 2
-        assert lst == instances[:2]
-        lst = list(lightmodel.get(offset=2, limit=2))
-        assert len(lst) == 2
-        assert lst == instances[2:4]
-        lst = list(lightmodel.get(start=2, stop=40))
-        assert len(lst) == 1
-        assert lst == instances[1:2]
-        lst = list(lightmodel.get(start=2, stop=50))
-        assert len(lst) == 2
-        assert lst == instances[1:3]
-        lst = list(lightmodel.get(offset=1, start=2, stop=50, limit=10))
-        assert len(lst) == 1
-        assert lst == instances[2:3]
-
-    def test_delete_plain(self):
-        new = fulltestmodel.new(id='A', unique='<string>', required='')
-        del new.required
-        assert new.required is None
-        del new.unique
-        assert new.unique is None
-        reloaded = fulltestmodel(id='A')
-        assert reloaded.required is None
-        assert reloaded.unique is None
-        # Doesn't raise
-        fulltestmodel.new(id='B', unique='<string>', required='')
-
-    def test_delete_standalone(self):
-        new = lightmodel.new(id='A')
-        new.proxy.sadd(b'1')
-        assert new.proxy.smembers() == {b'1'}
-        del new.proxy
-        assert new.proxy.smembers() == set()
-
-    def test_delete(self):
-        assert lightmodel.count() == 0
-        new = lightmodel.new(id='A')
-        assert lightmodel.count() == 1
-        new.proxy.sadd(b'1')
-        new.set = {1, 2, 3}
-        assert isinstance(new.proxy, proxies.commandproxy)
-        assert isinstance(new.set, set)
-        new.delete()
-        assert lightmodel.count() == 0
-        assert not new.good()
-        assert new.proxy is None
-
-        reloaded = lightmodel(id='A')
-        assert lightmodel.count() == 0
-        assert not reloaded.good()
-        assert reloaded.proxy is None
 
 
 class TestEncoding:
