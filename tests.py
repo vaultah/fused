@@ -182,6 +182,29 @@ class TestModelUpdate:
         delattr(tm, field)
         assert getattr(tm, field) == type(value)()
 
+    # Delayed updates
+    def test_cm_updates(self):
+        ka = {'id': 'A', 'unique': '<string>', 'required': ''}
+        upd = {'unique': '<some other string>', 'auto_set': {'a', 'b', 'c'},
+               'proxy_set': {b'1', b'2', b'3'}}
+        new = fulltestmodel.new(**ka)
+        with new:
+            new.unique = upd['unique']
+            assert new.unique == upd['unique']
+            assert fulltestmodel(id=ka['id']).unique == ka['unique']
+            with new:
+                new.auto_set = upd['auto_set']
+                assert new.auto_set == upd['auto_set']
+                assert fulltestmodel(id=ka['id']).auto_set == upd['auto_set']
+                with new:
+                    new.proxy_set.sadd(*upd['proxy_set'])
+                    assert fulltestmodel(id=ka['id']).proxy_set.smembers() == set()
+
+        loaded = fulltestmodel(id=ka['id'])
+        assert loaded.unique == upd['unique']
+        assert loaded.auto_set == upd['auto_set']
+        assert loaded.proxy_set.smembers() == upd['proxy_set']
+
 
 class TestModelNew:
 

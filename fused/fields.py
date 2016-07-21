@@ -1,7 +1,7 @@
 from . import exceptions, utils, proxies
 import abc
 import ast
-
+import redis
 
 class Field(metaclass=abc.ABCMeta):
 
@@ -50,9 +50,17 @@ class Field(metaclass=abc.ABCMeta):
                 raise AttributeError("Can't assign to proxy fields")
             key = model.qualified(self.name, pk=model.primary_key)
             # Containers can't be reliably updated using just one command
-            with model.get_pipeline() as pipe:
+
+            # Use the primary pipeline if we can
+            if isinstance(model.redis, redis.client.Pipeline):
+                pipe = model.redis
+            else:
+                pipe = model.get_pipeline()
+
+            with pipe:
                 self.save(key, pipe, value)
                 pipe.execute()
+
             self._set_instance(model, value) # TODO copy?
         else:
             model._update_plain({self.name: value})
@@ -105,8 +113,7 @@ class String(Field):
 
     @staticmethod
     def save(key, connection, value):
-        # Fetches the data immediately
-        return connection.set(key, value)
+        connection.set(key, value)
 
 
 class List(Field):
