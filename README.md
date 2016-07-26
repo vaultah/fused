@@ -43,3 +43,6 @@ Fused decodes all strings coming from Redis (including individual elements/value
  - values of `Bytes` fields, because that would defeat the purpose of `Bytes` fields
  - strings returned by methods of proxy objects, because it would be hard, and because proxy fields simply return what redis-py returns
 
+##Relations
+
+Fused has a special field type called `Foreign`. `Foreign`'s constructor argument is a class or a class name of a foreign model. Upon initialization of a model, all foreign fields it holds get initialized as well.
