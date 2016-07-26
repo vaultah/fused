@@ -26,14 +26,32 @@ class MetaModel(ABCMeta):
                     '_standalone_auto', '_scripts', '_foreign')
         for m in mappings:
             attrs[m] = {}
+
         cls = super().__new__(mcs, model_name, bases, attrs)
+
         cls._pk = None
         _registry[cls.__name__] = cls
+
+        try:
+            cls.__redis__ = cls.redis
+        except AttributeError:
+            # Base model class, ignore it
+            return cls
+        else:
+            # Get some information from the connection instance
+            # We need to know the encoding to deserialize some fields
+            params = cls.redis.connection_pool.connection_kwargs
+            dr = params.get('decode_responses', False)
+            cls.encoding = params.get('encoding', 'utf-8')
 
         # Allow the use of common fields defined in base models
         for name, field in dict(_rec_bases(cls)).items():
             field.name, field.model_name = name, model_name
             cls._fields[name] = field
+
+            if isinstance(field, Bytes) and dr:
+                raise exceptions.FusedError('decode_responses was enabled but'
+                                            ' {} has Bytes fields'.format(model_name))
             if isinstance(field, PrimaryKey):
                 cls._primary_key = name
 
@@ -55,29 +73,18 @@ class MetaModel(ABCMeta):
                 cls._required_fields[name] = field
 
         cls._standalone = dict(cls._standalone_proxy, **cls._standalone_auto)
-        cls._plain = dict(cls._unique_fields, **cls._plain_fields)  
+        cls._plain = dict(cls._unique_fields, **cls._plain_fields)
 
-        try:
-            cls.__redis__ = cls.redis
-        except AttributeError:
-            # Base model class, ignore it
-            pass
-        else:
-            # We can register those now and change the connection later
-            scripts = ['primary_key']
-            if cls._unique_fields:
-                scripts.append('unique')
-            
-            for s in scripts:
-                cls._scripts[s] = cls.__redis__.register_script(utils.SCRIPTS[s])
-                
-            # Get some information from the connection instance
-            # We need to know the encoding to deserialize some fields
-            _params = cls.redis.connection_pool.connection_kwargs
-            cls.encoding = _params.get('encoding', 'utf-8')
+        # We can register those now and change the connection later
+        scripts = ['primary_key']
+        if cls._unique_fields:
+            scripts.append('unique')
+
+        for s in scripts:
+            cls._scripts[s] = cls.__redis__.register_script(utils.SCRIPTS[s])
 
         return cls
-                    
+
 
 class Model(metaclass=MetaModel):
 

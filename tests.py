@@ -45,7 +45,6 @@ class fulltestmodel(model.Model):
 class decodetestmodel(model.Model):
     redis = redis.Redis(port=TEST_PORT, db=TEST_DB, decode_responses=True)
     id = fields.PrimaryKey()
-    bytes = fields.Bytes()
     str = fields.String()
     plain_set = fields.Set()
 
@@ -394,8 +393,7 @@ class TestEncoding:
     # TODO: standalone
  
     def test_decode_responses(self):
-        ka = {'id': 'A', 'str': '¿Cómo está usted?', 
-              'bytes': b'\x00 and some more chars',
+        ka = {'id': 'A', 'str': '¿Cómo está usted?',
               'plain_set': {1, 2, 3, 'a', b'b', ('c',)}}
         new = decodetestmodel.new(**ka)
         for k in ka:
@@ -404,10 +402,8 @@ class TestEncoding:
         reloaded = decodetestmodel(id=ka['id'])
         # If decode_responses is True, it will raise
         # AssertionError for 'bytes', this is by design
-        for k in ka.keys() - {'bytes'}:
+        for k in ka.keys():
             assert ka[k] == getattr(reloaded, k)
-
-        assert ka['bytes'] != reloaded.bytes
 
     def test_no_decode_responses(self):
         ka = {'id': 'A', 'str': '¿Cómo está usted?',
