@@ -152,24 +152,31 @@ class Model(metaclass=MetaModel):
     def _prepare(self, data):
         ''' Initialize all 'foreign' fields (create instances of corresponding
             classes) and update `self.data` '''
+
+        # Everything we fetch from Redis goes to `self.data`
+        # `data` is the dictionary passed from the __init__
+        # Original Redis data
         original = self.data.copy()
         self.data.update(data)
 
         for field, ob in self._foreign.items():
             if field not in data and field not in original:
                 continue
-            # May either be a string or a type
+
+            # May either be a string or a type, but `ft` will always be a type
             if isinstance(ob.foreign, type):
                 ft = ob.foreign
             else:
                 ft = _registry[ob.foreign]
 
             if field in data:
-                if isinstance(data[field], ft):
-                    fv = data[field]
+                fv = data[field]
+                if isinstance(fv, ft):
+                    # Ensure that the primary key is there
                     original.setdefault(field, fv.primary_key)
                 else:
-                    fv = original[field] = data[field]
+                    # Replace whatever `origin[field]` contains
+                    original[field] = fv
             else:
                 fv = original[field]
 
